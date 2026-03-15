@@ -15,7 +15,10 @@ local Range = {
 		["WARLOCK"] = GetSpellName(5697), -- Unending Breath
 		--["DEATHKNIGHT"] = GetSpellName(61999), -- Raise Ally (resurrection only, nil on living targets)
 		["MONK"] = GetSpellName(115450), -- Detox
-		["MAGE"] = GetSpellName(130), -- Slow Fall
+		["MAGE"] = {
+			(GetSpellName(1459)), -- Arcane Intellect (works on any friendly target)
+			(GetSpellName(130)), -- Slow Fall (players only)
+		},
 		["WARRIOR"] = GetSpellName(3411), -- Intervene
 		["EVOKER"] = GetSpellName(361469), -- Living Flame
 		--["ROGUE"] = GetSpellName(57934), -- Tricks of the Trade (100yd)
@@ -137,6 +140,14 @@ local function checkRange(self)
         return
     end
 
+
+    -- Fallback: CheckInteractDistance for non-group units (friendly NPCs, etc.)
+    -- distIndex 4 ≈ 28 yards — not perfect but better than no check
+    local ok, inDist = pcall(CheckInteractDistance, frame.unit, 4)
+    if ok and inDist ~= nil then
+        frame:SetRangeAlpha(inDist and inAlpha or oorAlpha)
+        return
+    end
 
     -- Default
     frame:SetRangeAlpha(inAlpha)
