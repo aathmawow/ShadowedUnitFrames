@@ -231,8 +231,8 @@ local function createTagFunction(tags, resetCache)
 			end
 		end
 
-		for id, func in pairs(args) do
-			temp[id] = func(fontString.parent.unit, fontString.parent.unitOwner, fontString) or ""
+		for id = 1, #args do
+			temp[id] = args[id](fontString.parent.unit, fontString.parent.unitOwner, fontString) or ""
 		end
 
 		fontString:SetFormattedText(formattedText, unpack(temp))
@@ -241,21 +241,82 @@ local function createTagFunction(tags, resetCache)
 	return tagPool[tags], frequencyCache[tags]
 end
 
-local function createMonitorTimer(fontString, frequency)
-	if( not fontString.monitor or fontString.monitor.frequency ~= frequency ) then
-		if fontString.monitor then
-			fontString.monitor:Cancel()
-		end
-		fontString.monitor  = C_Timer.NewTicker(frequency, function() fontString:UpdateTags() end)
-		fontString.monitor.frequency = frequency
+-- Shared tier-based tag monitor: 3 buckets instead of per-fontstring tickers
+local tierBuckets = {
+	fast   = {fontStrings = {}, ticker = nil},  -- <= 0.25s
+	normal = {fontStrings = {}, ticker = nil},  -- <= 0.50s
+	slow   = {fontStrings = {}, ticker = nil},  -- > 0.50s
+}
+
+local tierRateKeys = {
+	fast   = "tagMonitorFast",
+	normal = "tagMonitorNormal",
+	slow   = "tagMonitorSlow",
+}
+
+local function getFrequencyTier(frequency)
+	if frequency <= 0.25 then return "fast"
+	elseif frequency <= 0.50 then return "normal"
+	else return "slow"
 	end
 end
 
-local function cancelMonitorTimer(fontString)
-	if( fontString.monitor ) then
-		fontString.monitor:Cancel()
-		fontString.monitor = nil
+local function tierTick(bucket)
+	for fontString in pairs(bucket.fontStrings) do
+		if fontString.parent and fontString.parent:IsVisible() and fontString.UpdateTags then
+			fontString:UpdateTags()
+		end
 	end
+end
+
+local function ensureTierTicker(tierName)
+	local bucket = tierBuckets[tierName]
+	if not bucket.ticker and next(bucket.fontStrings) then
+		local rate = ShadowUF.Performance:GetRate(tierRateKeys[tierName])
+		bucket.ticker = C_Timer.NewTicker(rate, function() tierTick(bucket) end)
+	end
+end
+
+local function stopTierTicker(tierName)
+	local bucket = tierBuckets[tierName]
+	if bucket.ticker and not next(bucket.fontStrings) then
+		bucket.ticker:Cancel()
+		bucket.ticker = nil
+	end
+end
+
+local function createMonitorTimer(fontString, frequency)
+	-- Remove from previous tier if any
+	if fontString.monitorTier then
+		local oldTier = fontString.monitorTier
+		tierBuckets[oldTier].fontStrings[fontString] = nil
+		stopTierTicker(oldTier)
+	end
+
+	local tierName = getFrequencyTier(frequency)
+	fontString.monitorTier = tierName
+	tierBuckets[tierName].fontStrings[fontString] = true
+	ensureTierTicker(tierName)
+end
+
+local function cancelMonitorTimer(fontString)
+	if fontString.monitorTier then
+		local tierName = fontString.monitorTier
+		tierBuckets[tierName].fontStrings[fontString] = nil
+		fontString.monitorTier = nil
+		stopTierTicker(tierName)
+	end
+end
+
+-- Rebuild tier tickers when rates change via Performance UI
+for tierName, rateKey in pairs(tierRateKeys) do
+	ShadowUF.Performance:RegisterCallback(rateKey, function(newRate)
+		local bucket = tierBuckets[tierName]
+		if bucket.ticker then
+			bucket.ticker:Cancel()
+			bucket.ticker = C_Timer.NewTicker(newRate, function() tierTick(bucket) end)
+		end
+	end)
 end
 
 function Tags:Register(parent, fontString, tags, resetCache)
@@ -273,7 +334,7 @@ function Tags:Register(parent, fontString, tags, resetCache)
 
 	if( frequency ) then
 		createMonitorTimer(fontString, frequency)
-	elseif( fontString.monitor ) then
+	elseif( fontString.monitorTier ) then
 		cancelMonitorTimer(fontString)
 	end
 

@@ -42,6 +42,15 @@ function ShadowUF:OnInitialize()
 			filters = {zonewhite = {}, zoneblack = {}, zoneoverride = {}, whitelists = {}, blacklists = {}, overridelists = {}},
 			visibility = {arena = {}, pvp = {}, party = {}, raid = {}, neighborhood = {}},
 			hidden = {cast = false, playerPower = true, buffs = false, party = true, raid = false, player = true, pet = true, target = true, focus = true, boss = true, arena = true, playerAltPower = false},
+			performance = {
+				rangeCheck = 0.50,
+				tagMonitorFast = 0.25,
+				tagMonitorNormal = 0.50,
+				tagMonitorSlow = 1.00,
+				fakeCastMonitor = 0.10,
+				combatIndicator = 1.00,
+				tempEnchantScan = 0.50,
+			},
 		},
 	}
 

@@ -954,5 +954,26 @@ L["Shows all buffs on the unit without any filtering."] = "Zeigt alle Stärkungs
 L["Shows all debuffs on the unit without any filtering."] = "Zeigt alle Schwächungszauber der Einheit ohne Filterung."
 L["Shows debuffs relevant in a group or raid context (boss mechanics, important debuffs)."] = "Zeigt Schwächungszauber, die im Gruppen- oder Schlachtzugkontext relevant sind (Boss-Mechaniken, wichtige Schwächungen)."
 
+-- Performance
+L["Performance"] = "Leistung"
+L["Performance settings"] = "Leistungseinstellungen"
+L["Adjust polling and refresh rates for various addon subsystems. Lower values = more responsive but higher CPU usage. Higher values = less CPU but slower updates."] = "Abfrageintervalle der Addon-Module anpassen. Niedrigere Werte = reaktionsschneller, aber höhere CPU-Last. Höhere Werte = weniger CPU, aber langsamere Aktualisierung."
+L["Range check interval"] = "Reichweitenprüfung"
+L["How often to check if units are in range (seconds)."] = "Wie oft geprüft wird, ob sich Einheiten in Reichweite befinden (Sekunden)."
+L["Fast tag refresh"] = "Schnelle Tags"
+L["Refresh rate for rapidly changing tags like health/power percent (seconds)."] = "Aktualisierungsrate für sich schnell ändernde Tags wie Gesundheits-/Machtprozent (Sekunden)."
+L["Normal tag refresh"] = "Normale Tags"
+L["Refresh rate for standard dynamic tags (seconds)."] = "Aktualisierungsrate für standardmäßige dynamische Tags (Sekunden)."
+L["Slow tag refresh"] = "Langsame Tags"
+L["Refresh rate for slowly changing tags like AFK timers (seconds)."] = "Aktualisierungsrate für sich langsam ändernde Tags wie AFK-Timer (Sekunden)."
+L["Fake cast monitor"] = "Simulierter Zaubermonitor"
+L["Polling rate for cast bars on non-event units like focus target (seconds)."] = "Abfragerate für Zauberleisten bei Einheiten ohne Ereignisse wie Fokusziel (Sekunden)."
+L["Combat indicator"] = "Kampfindikator"
+L["How often to poll NPC combat status for the combat indicator (seconds)."] = "Wie oft der NPC-Kampfstatus für den Kampfindikator abgefragt wird (Sekunden)."
+L["Temp enchant scan"] = "Temporäre Verzauberungen"
+L["How often to scan for temporary weapon enchants (seconds)."] = "Wie oft nach temporären Waffenverzauberungen gescannt wird (Sekunden)."
+L["Reset to defaults"] = "Auf Standard zurücksetzen"
+L["Reset all performance settings to their default values."] = "Alle Leistungseinstellungen auf ihre Standardwerte zurücksetzen."
+
 local ShadowUF = select(2, ...)
 ShadowUF.L = setmetatable(L, {__index = ShadowUF.L})

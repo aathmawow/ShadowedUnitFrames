@@ -218,22 +218,60 @@ function Indicators:UpdatePetBattle(frame)
 end
 
 -- Non-player units do not give events when they enter or leave combat, so polling is necessary
-local function combatMonitor(self, elapsed)
-	self.timeElapsed = self.timeElapsed + elapsed
-	if( self.timeElapsed < 1 ) then return end
-	self.timeElapsed = self.timeElapsed - 1
+-- Shared ticker, one timer iterates all registered frames
+local combatMonitorFrames = {}
+local combatTicker = nil
 
-	if( UnitAffectingCombat(self.parent.unit) ) then
-		self.status:Show()
-	else
-		self.status:Hide()
+local function sharedCombatCheck()
+	for frame in pairs(combatMonitorFrames) do
+		if frame:IsVisible() and frame.indicators and frame.indicators.status then
+			if UnitAffectingCombat(frame.unit) then
+				frame.indicators.status:Show()
+			else
+				frame.indicators.status:Hide()
+			end
+		end
 	end
 end
 
+local function ensureCombatTicker()
+	if not combatTicker then
+		local rate = ShadowUF.Performance:GetRate("combatIndicator")
+		combatTicker = C_Timer.NewTicker(rate, sharedCombatCheck)
+	end
+end
+
+local function stopCombatTicker()
+	if combatTicker and not next(combatMonitorFrames) then
+		combatTicker:Cancel()
+		combatTicker = nil
+	end
+end
+
+local function registerCombatMonitor(frame)
+	combatMonitorFrames[frame] = true
+	ensureCombatTicker()
+end
+
+local function unregisterCombatMonitor(frame)
+	combatMonitorFrames[frame] = nil
+	stopCombatTicker()
+end
+
+ShadowUF.Performance:RegisterCallback("combatIndicator", function(newRate)
+	if combatTicker then
+		combatTicker:Cancel()
+		combatTicker = C_Timer.NewTicker(newRate, sharedCombatCheck)
+	end
+end)
+
 -- It looks like the combat check for players is a bit buggy when they are in a vehicle, so swap it to also check polling
 function Indicators:CheckVehicle(frame)
-	frame.indicators.timeElapsed = 0
-	frame.indicators:SetScript("OnUpdate", frame.inVehicle and combatMonitor or nil)
+	if frame.inVehicle then
+		registerCombatMonitor(frame)
+	else
+		unregisterCombatMonitor(frame)
+	end
 end
 
 function Indicators:UpdateStatus(frame)
@@ -333,8 +371,6 @@ function Indicators:OnEnable(frame)
 		frame:RegisterUpdateFunc(self, "UpdateStatus")
 		frame.indicators.status = frame.indicators.status or frame.indicators:CreateTexture(nil, "OVERLAY")
 		frame.indicators.status:SetTexture("Interface\\CharacterFrame\\UI-StateIcon")
-		frame.indicators.timeElapsed = 0
-		frame.indicators.parent = frame
 
 		if( frame.unitType == "player" ) then
 			frame:RegisterUpdateFunc(self, "CheckVehicle")
@@ -344,10 +380,10 @@ function Indicators:OnEnable(frame)
 			frame:RegisterNormalEvent("UPDATE_FACTION", self, "UpdateStatus")
 		else
 			frame.indicators.status:SetTexCoord(0.50, 1.0, 0.0, 0.49)
-			frame.indicators:SetScript("OnUpdate", combatMonitor)
+			registerCombatMonitor(frame)
 		end
 	elseif( frame.indicators.status ) then
-		frame.indicators:SetScript("OnUpdate", nil)
+		unregisterCombatMonitor(frame)
 	end
 
 	if( config.indicators.arenaSpec and config.indicators.arenaSpec.enabled ) then
@@ -463,6 +499,7 @@ function Indicators:OnEnable(frame)
 end
 
 function Indicators:OnDisable(frame)
+	unregisterCombatMonitor(frame)
 	frame:UnregisterAll(self)
 
 	for _, key in pairs(self.list) do
@@ -493,7 +530,7 @@ function Indicators:OnLayoutApplied(frame, config)
 
 		-- Disable the polling
 		if( config.indicators.status and not config.indicators.status.enabled and frame.indicators.status ) then
-			frame.indicators:SetScript("OnUpdate", nil)
+			unregisterCombatMonitor(frame)
 		end
 	end
 end

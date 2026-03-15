@@ -5,6 +5,18 @@ local mainHand, offHand, tempEnchantScan = {time = 0}, {time = 0}
 local canCure = ShadowUF.Units.canCure
 ShadowUF:RegisterModule(Auras, "auras", ShadowUF.L["Auras"])
 
+local FILTER_STRINGS = {
+	HELPFUL = {PLAYER = "HELPFUL|PLAYER", RAID = "HELPFUL|RAID", RAID_PLAYER_DISPELLABLE = "HELPFUL|RAID_PLAYER_DISPELLABLE"},
+	HARMFUL = {PLAYER = "HARMFUL|PLAYER", RAID = "HARMFUL|RAID", RAID_PLAYER_DISPELLABLE = "HARMFUL|RAID_PLAYER_DISPELLABLE"},
+}
+
+local AURA_TYPES = {"buffs", "debuffs"}
+
+local _scanUnit, _scanFilter
+local function _safeGetAuraSlots()
+	return {C_UnitAuras.GetAuraSlots(_scanUnit, _scanFilter)}
+end
+
 function Auras:OnEnable(frame)
 	frame.auras = frame.auras or {}
 
@@ -407,7 +419,7 @@ local function updateGroup(self, groupKey, config, reverseConfig)
 		mainHand.has = false
 		offHand.time = 0
 		offHand.has = false
-		timeElapsed = 0.50 -- Force immediate scan on next OnUpdate
+		timeElapsed = ShadowUF.Performance:GetRate("tempEnchantScan") -- Force immediate scan on next OnUpdate
 		group:SetScript("OnUpdate", tempEnchantScan)
 	else
 		group:SetScript("OnUpdate", nil)
@@ -856,8 +868,9 @@ tempEnchantScan = function(self, elapsed)
 	end
 
 	timeElapsed = timeElapsed + elapsed
-	if( timeElapsed < 0.50 ) then return end
-	timeElapsed = timeElapsed - 0.50
+	local tempEnchantRate = ShadowUF.Performance:GetRate("tempEnchantScan")
+	if( timeElapsed < tempEnchantRate ) then return end
+	timeElapsed = timeElapsed - tempEnchantRate
 
 
 	local hasMain, mainTimeLeft, mainCharges, mainEnchantId, hasOff, offTimeLeft, offCharges, offEnchantId = GetWeaponEnchantInfo()
@@ -1082,17 +1095,17 @@ local function processAura(parent, frame, type, config, displayConfig, filter, u
 	local texture = auraData.icon or "Interface\\Icons\\INV_Misc_QuestionMark"
 	local count = auraData.applications
 	local durationObject = auraData
-	local baseFilter = (type == "debuffs") and "HARMFUL" or "HELPFUL"
+	local filterStrings = (type == "debuffs") and FILTER_STRINGS.HARMFUL or FILTER_STRINGS.HELPFUL
 
 	local isPlayerAura = (config.filter == "PLAYER") or
-		not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, baseFilter .. "|PLAYER")
+		not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, filterStrings.PLAYER)
 
 	local isRaid = (config.filter == "RAID") or
-		not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, baseFilter .. "|RAID")
+		not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, filterStrings.RAID)
 
 	-- Removable = dispellable debuffs on friendlies OR stealable/purgeable buffs on enemies
 	local canRemove = (type == "debuffs" and isFriendly) or (type == "buffs" and not isFriendly)
-	local isRemovable = canRemove and not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, baseFilter .. "|RAID_PLAYER_DISPELLABLE")
+	local isRemovable = canRemove and not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraData.auraInstanceID, filterStrings.RAID_PLAYER_DISPELLABLE)
 
 	local canApplyAura = (type == "buffs") and isRaid
 	local caster = isPlayerAura and "player" or nil
@@ -1120,7 +1133,8 @@ local function scan(parent, frame, type, config, displayConfig, filter)
 	-- 12.0: All aura APIs use UnitTokenRestrictedForAddOns which blocks compound unit tokens
 	-- (focustarget, boss1target, etc.) except "targettarget" which is explicitly exempted.
 	-- pcall to silently skip unsupported units instead of throwing errors.
-	local ok, slots = pcall(function() return {C_UnitAuras.GetAuraSlots(unit, filter)} end)
+	_scanUnit, _scanFilter = unit, filter
+	local ok, slots = pcall(_safeGetAuraSlots)
 	if( not ok ) then
 		for i = frame.totalAuras + 1, #(frame.buttons) do frame.buttons[i]:Hide() end
 		return
@@ -1178,7 +1192,7 @@ function Auras:Update(frame)
 	local config = ShadowUF.db.profile.units[frame.unitType].auras
 	
 	-- Iterate over all possible aura frames
-	for _, auraType in pairs({"buffs", "debuffs"}) do
+	for _, auraType in ipairs(AURA_TYPES) do
 		local typeConfig = config[auraType]
 		if( typeConfig ) then
 			for i = 1, 6 do

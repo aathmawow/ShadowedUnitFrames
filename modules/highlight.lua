@@ -65,7 +65,7 @@ end
 function Highlight:OnEnable(frame)
 	if( not frame.highlight ) then
 		frame.highlight = CreateFrame("Frame", nil, frame)
-		frame.highlight:SetFrameLevel(frame.topFrameLevel)
+		frame.highlight:SetFrameLevel(frame.topFrameLevel + 5)
 		frame.highlight:SetAllPoints(frame)
 		frame.highlight:SetSize(1, 1)
 
@@ -226,32 +226,15 @@ end
 
 function Highlight:UpdateAura(frame)
 	frame.highlight.hasDebuffColor = nil
-	
-	if not UnitIsFriend(frame.unit, "player") then
-		self:Update(frame)
-		return
-	end
-	
-	-- 12.0: Use RAID_PLAYER_DISPELLABLE filter + ColorCurve for dispellable debuff highlighting
-	local curve = self:GetColorCurve()
-	if not curve or not C_UnitAuras.GetAuraDispelTypeColor then
-		self:Update(frame)
-		return
-	end
 
-	-- GetAuraSlots rejects compound unit tokens and player names
-	local results = {pcall(C_UnitAuras.GetAuraSlots, frame.unit, "HARMFUL|RAID_PLAYER_DISPELLABLE")}
-	if not results[1] then
-		self:Update(frame)
-		return
-	end
-	for i = 3, #results do
-		local auraData = C_UnitAuras.GetAuraDataBySlot(frame.unit, results[i])
-		if auraData and auraData.auraInstanceID then
-			local color = C_UnitAuras.GetAuraDispelTypeColor(frame.unit, auraData.auraInstanceID, curve)
-			if color then
-				frame.highlight.hasDebuffColor = color
-				break
+	-- Use shared dispel scan cache
+	local HealthMod = ShadowUF.modules.healthBar
+	if HealthMod and HealthMod.ScanDispellableAura then
+		local unit, auraInstanceID = HealthMod.ScanDispellableAura(frame)
+		if unit and auraInstanceID then
+			local curve = self:GetColorCurve()
+			if curve then
+				frame.highlight.hasDebuffColor = C_UnitAuras.GetAuraDispelTypeColor(unit, auraInstanceID, curve)
 			end
 		end
 	end

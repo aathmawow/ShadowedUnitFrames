@@ -165,19 +165,56 @@ local function updateSpellCache(category)
 	end
 end
 
-local function createTimer(frame)
-	if( not frame.range.timer ) then
-		frame.range.timer = C_Timer.NewTicker(0.5, checkRange)
-		frame.range.timer.parent = frame
+-- Shared ticker, one single timer iterates all visible range-enabled frames
+local rangeFrames = {}
+local sharedTicker = nil
+
+local function sharedRangeCheck()
+	for frame in pairs(rangeFrames) do
+		if frame:IsVisible() and frame.range and frame.range.timer then
+			checkRange(frame.range.timer)
+		end
 	end
 end
 
-local function cancelTimer(frame)
-	if( frame.range and frame.range.timer ) then
-		frame.range.timer:Cancel()
-		frame.range.timer = nil
+local function ensureSharedTicker()
+	if not sharedTicker then
+		local rate = ShadowUF.Performance:GetRate("rangeCheck")
+		sharedTicker = C_Timer.NewTicker(rate, sharedRangeCheck)
 	end
 end
+
+local function stopSharedTicker()
+	if sharedTicker and not next(rangeFrames) then
+		sharedTicker:Cancel()
+		sharedTicker = nil
+	end
+end
+
+local function createTimer(frame)
+	if not frame.range.timer then
+		-- Lightweight stub compatible with checkRange(self) reading self.parent
+		frame.range.timer = {parent = frame}
+	end
+	rangeFrames[frame] = true
+	ensureSharedTicker()
+end
+
+local function cancelTimer(frame)
+	if frame.range and frame.range.timer then
+		frame.range.timer = nil
+	end
+	rangeFrames[frame] = nil
+	stopSharedTicker()
+end
+
+-- Rebuild shared ticker when rate changes via Performance UI
+ShadowUF.Performance:RegisterCallback("rangeCheck", function(newRate)
+	if sharedTicker then
+		sharedTicker:Cancel()
+		sharedTicker = C_Timer.NewTicker(newRate, sharedRangeCheck)
+	end
+end)
 
 function Range:ForceUpdate(frame)
 	-- UnitIsUnit can return secret values for fake units, boolean test must be inside pcall

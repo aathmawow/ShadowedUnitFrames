@@ -8,19 +8,18 @@ local function getGradientColor(unit)
 	end
 
 	-- Cache curve and rebuild only when profile colors change.
-	Health._gradientKey = Health._gradientKey or nil
 	Health._gradientCurve = Health._gradientCurve or nil
 
 	local hc = ShadowUF.db.profile.healthColors
-	local key = string.format(
-		"%.3f,%.3f,%.3f|%.3f,%.3f,%.3f|%.3f,%.3f,%.3f",
-		hc.red.r, hc.red.g, hc.red.b,
-		hc.yellow.r, hc.yellow.g, hc.yellow.b,
-		hc.green.r, hc.green.g, hc.green.b
-	)
+	local changed = not Health._gradientCurve
+		or Health._gcRR ~= hc.red.r or Health._gcRG ~= hc.red.g or Health._gcRB ~= hc.red.b
+		or Health._gcYR ~= hc.yellow.r or Health._gcYG ~= hc.yellow.g or Health._gcYB ~= hc.yellow.b
+		or Health._gcGR ~= hc.green.r or Health._gcGG ~= hc.green.g or Health._gcGB ~= hc.green.b
 
-	if not Health._gradientCurve or Health._gradientKey ~= key then
-		Health._gradientKey = key
+	if changed then
+		Health._gcRR, Health._gcRG, Health._gcRB = hc.red.r, hc.red.g, hc.red.b
+		Health._gcYR, Health._gcYG, Health._gcYB = hc.yellow.r, hc.yellow.g, hc.yellow.b
+		Health._gcGR, Health._gcGG, Health._gcGB = hc.green.r, hc.green.g, hc.green.b
 
 		if C_CurveUtil and C_CurveUtil.CreateColorCurve then
 			local curve = C_CurveUtil.CreateColorCurve()
@@ -46,6 +45,39 @@ local function getGradientColor(unit)
 end
 
 Health.getGradientColor = getGradientColor
+
+-- Shared dispel aura scan cache
+local _dispelCache = setmetatable({}, {__mode = "k"})
+
+function Health.ScanDispellableAura(frame)
+	local now = GetTime()
+	local cached = _dispelCache[frame]
+	if cached and cached.time == now then
+		return cached.unit, cached.auraInstanceID
+	end
+
+	if not _dispelCache[frame] then _dispelCache[frame] = {} end
+	_dispelCache[frame].time = now
+	_dispelCache[frame].unit = nil
+	_dispelCache[frame].auraInstanceID = nil
+
+	if not UnitIsFriend(frame.unit, "player") then return nil, nil end
+	if not C_UnitAuras or not C_UnitAuras.GetAuraDispelTypeColor then return nil, nil end
+
+	local results = {pcall(C_UnitAuras.GetAuraSlots, frame.unit, "HARMFUL|RAID_PLAYER_DISPELLABLE")}
+	if not results[1] then return nil, nil end
+
+	for i = 3, #results do
+		local auraData = C_UnitAuras.GetAuraDataBySlot(frame.unit, results[i])
+		if auraData and auraData.auraInstanceID then
+			_dispelCache[frame].unit = frame.unit
+			_dispelCache[frame].auraInstanceID = auraData.auraInstanceID
+			return frame.unit, auraData.auraInstanceID
+		end
+	end
+
+	return nil, nil
+end
 
 -- ColorCurve for dispellable debuff health bar coloring
 local dispelColorCurve = nil
@@ -116,27 +148,14 @@ function Health:UpdateAura(frame)
 	local hadDebuff = frame.healthBar.hasDebuffColor
 	frame.healthBar.hasDebuffColor = nil
 
-	if( UnitIsFriend(frame.unit, "player") ) then
-		-- 12.0: Use RAID_PLAYER_DISPELLABLE filter + ColorCurve
-		-- The filter already checks the player's class dispel capability
+	local unit, auraInstanceID = Health.ScanDispellableAura(frame)
+	if unit and auraInstanceID then
 		local curve = getDispelColorCurve()
-		if( curve and C_UnitAuras.GetAuraDispelTypeColor ) then
-			local results = {pcall(C_UnitAuras.GetAuraSlots, frame.unit, "HARMFUL|RAID_PLAYER_DISPELLABLE")}
-			if not results[1] then return end
-			for i = 3, #results do
-				local auraData = C_UnitAuras.GetAuraDataBySlot(frame.unit, results[i])
-				if( auraData and auraData.auraInstanceID ) then
-					local color = C_UnitAuras.GetAuraDispelTypeColor(frame.unit, auraData.auraInstanceID, curve)
-					if( color ) then
-						frame.healthBar.hasDebuffColor = color
-						break
-					end
-				end
-			end
+		if curve then
+			frame.healthBar.hasDebuffColor = C_UnitAuras.GetAuraDispelTypeColor(unit, auraInstanceID, curve)
 		end
 	end
 
-	-- Compare references: nil vs nil = no change, otherwise always update
 	if( hadDebuff ~= frame.healthBar.hasDebuffColor ) then
 		self:UpdateColor(frame)
 	end
@@ -173,14 +192,16 @@ function Health:UpdateColor(frame)
 			else
 				color = ShadowUF.db.profile.healthColors.enemyUnattack
 			end
-		elseif( UnitReaction(unit, "player") ) then
+		else
 			local reaction = UnitReaction(unit, "player")
-			if( reaction > 4 ) then
-				color = ShadowUF.db.profile.healthColors.friendly
-			elseif( reaction == 4 ) then
-				color = ShadowUF.db.profile.healthColors.neutral
-			elseif( reaction < 4 ) then
-				color = ShadowUF.db.profile.healthColors.hostile
+			if reaction then
+				if( reaction > 4 ) then
+					color = ShadowUF.db.profile.healthColors.friendly
+				elseif( reaction == 4 ) then
+					color = ShadowUF.db.profile.healthColors.neutral
+				else
+					color = ShadowUF.db.profile.healthColors.hostile
+				end
 			end
 		end
 	elseif( ShadowUF.db.profile.units[frame.unitType].healthBar.colorType == "class" and (UnitIsPlayer(unit) or unit == "pet" or UnitPlayerOrPetInRaid(unit) or UnitPlayerOrPetInParty(unit)) ) then

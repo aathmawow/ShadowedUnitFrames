@@ -988,5 +988,26 @@ L["Shows all buffs on the unit without any filtering."] = "显示目标的所有
 L["Shows all debuffs on the unit without any filtering."] = "显示目标的所有减益，不进行筛选。"
 L["Shows debuffs relevant in a group or raid context (boss mechanics, important debuffs)."] = "显示在队伍或团队中相关的减益（首领机制、重要减益）。"
 
+-- Performance
+L["Performance"] = "性能"
+L["Performance settings"] = "性能设置"
+L["Adjust polling and refresh rates for various addon subsystems. Lower values = more responsive but higher CPU usage. Higher values = less CPU but slower updates."] = "调整插件模块的刷新间隔。较低的值 = 响应更快但CPU占用更高。较高的值 = CPU占用更低但更新较慢。"
+L["Range check interval"] = "距离检查间隔"
+L["How often to check if units are in range (seconds)."] = "检查目标是否在范围内的频率（秒）。"
+L["Fast tag refresh"] = "快速标签刷新"
+L["Refresh rate for rapidly changing tags like health/power percent (seconds)."] = "快速变化标签（如生命值/能量百分比）的刷新频率（秒）。"
+L["Normal tag refresh"] = "普通标签刷新"
+L["Refresh rate for standard dynamic tags (seconds)."] = "标准动态标签的刷新频率（秒）。"
+L["Slow tag refresh"] = "慢速标签刷新"
+L["Refresh rate for slowly changing tags like AFK timers (seconds)."] = "缓慢变化标签（如暂离计时器）的刷新频率（秒）。"
+L["Fake cast monitor"] = "模拟施法监控"
+L["Polling rate for cast bars on non-event units like focus target (seconds)."] = "无事件单位（如焦点目标）施法条的轮询频率（秒）。"
+L["Combat indicator"] = "战斗指示器"
+L["How often to poll NPC combat status for the combat indicator (seconds)."] = "战斗指示器的NPC战斗状态轮询频率（秒）。"
+L["Temp enchant scan"] = "临时附魔扫描"
+L["How often to scan for temporary weapon enchants (seconds)."] = "临时武器附魔的扫描频率（秒）。"
+L["Reset to defaults"] = "恢复默认"
+L["Reset all performance settings to their default values."] = "将所有性能设置恢复为默认值。"
+
 local ShadowUF = select(2, ...)
 ShadowUF.L = setmetatable(L, {__index = ShadowUF.L})

@@ -789,5 +789,26 @@ L["Shows all buffs on the unit without any filtering."] = "Показывает 
 L["Shows all debuffs on the unit without any filtering."] = "Показывает все дебаффы цели без фильтрации."
 L["Shows debuffs relevant in a group or raid context (boss mechanics, important debuffs)."] = "Показывает дебаффы, актуальные в контексте группы или рейда (механики боссов, важные дебаффы)."
 
+-- Performance
+L["Performance"] = "Производительность"
+L["Performance settings"] = "Настройки производительности"
+L["Adjust polling and refresh rates for various addon subsystems. Lower values = more responsive but higher CPU usage. Higher values = less CPU but slower updates."] = "Настройка интервалов обновления модулей аддона. Меньшие значения = быстрее реакция, но выше нагрузка на процессор. Большие значения = меньше нагрузка, но медленнее обновление."
+L["Range check interval"] = "Проверка дальности"
+L["How often to check if units are in range (seconds)."] = "Частота проверки нахождения целей в зоне досягаемости (секунды)."
+L["Fast tag refresh"] = "Быстрые теги"
+L["Refresh rate for rapidly changing tags like health/power percent (seconds)."] = "Частота обновления быстро меняющихся тегов, таких как процент здоровья/ресурса (секунды)."
+L["Normal tag refresh"] = "Обычные теги"
+L["Refresh rate for standard dynamic tags (seconds)."] = "Частота обновления стандартных динамических тегов (секунды)."
+L["Slow tag refresh"] = "Медленные теги"
+L["Refresh rate for slowly changing tags like AFK timers (seconds)."] = "Частота обновления медленно меняющихся тегов, таких как таймер отсутствия (секунды)."
+L["Fake cast monitor"] = "Монитор симулированного заклинания"
+L["Polling rate for cast bars on non-event units like focus target (seconds)."] = "Частота опроса полос заклинаний для целей без событий, таких как цель фокуса (секунды)."
+L["Combat indicator"] = "Индикатор боя"
+L["How often to poll NPC combat status for the combat indicator (seconds)."] = "Частота опроса боевого статуса NPC для индикатора боя (секунды)."
+L["Temp enchant scan"] = "Временные чары"
+L["How often to scan for temporary weapon enchants (seconds)."] = "Частота сканирования временных зачарований оружия (секунды)."
+L["Reset to defaults"] = "Сбросить по умолчанию"
+L["Reset all performance settings to their default values."] = "Сбросить все настройки производительности к значениям по умолчанию."
+
 local ShadowUF = select(2, ...)
 ShadowUF.L = setmetatable(L, {__index = ShadowUF.L})

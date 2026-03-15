@@ -50,11 +50,14 @@ local function monitorFakeCast(self)
 	end
 end
 
+local fakeCastFrames = {}
+
 local function createFakeCastMonitor(frame)
 	if( not frame.castBar.monitor ) then
-		frame.castBar.monitor = C_Timer.NewTicker(0.10, monitorFakeCast)
+		frame.castBar.monitor = C_Timer.NewTicker(ShadowUF.Performance:GetRate("fakeCastMonitor"), monitorFakeCast)
 		frame.castBar.monitor.parent = frame
 	end
+	fakeCastFrames[frame] = true
 end
 
 local function cancelFakeCastMonitor(frame)
@@ -62,7 +65,18 @@ local function cancelFakeCastMonitor(frame)
 		frame.castBar.monitor:Cancel()
 		frame.castBar.monitor = nil
 	end
+	fakeCastFrames[frame] = nil
 end
+
+ShadowUF.Performance:RegisterCallback("fakeCastMonitor", function(newRate)
+	for frame in pairs(fakeCastFrames) do
+		if frame.castBar and frame.castBar.monitor then
+			frame.castBar.monitor:Cancel()
+			frame.castBar.monitor = C_Timer.NewTicker(newRate, monitorFakeCast)
+			frame.castBar.monitor.parent = frame
+		end
+	end
+end)
 
 function Cast:OnEnable(frame)
 	if( not frame.castBar ) then

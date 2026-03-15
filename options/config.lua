@@ -8145,6 +8145,68 @@ local function loadAuraIndicatorsOptions()
 	advanceTextTable.args.y.hidden = unlockRaidText
 end
 
+local function loadPerformanceOptions()
+	local L = ShadowUF.L
+	local Perf = ShadowUF.Performance
+
+	local rateSliders = {}
+	local sliderDefs = {
+		{key = "rangeCheck",       order = 1, name = L["Range check interval"],  desc = L["How often to check if units are in range (seconds)."]},
+		{key = "tagMonitorFast",   order = 2, name = L["Fast tag refresh"],      desc = L["Refresh rate for rapidly changing tags like health/power percent (seconds)."]},
+		{key = "tagMonitorNormal", order = 3, name = L["Normal tag refresh"],    desc = L["Refresh rate for standard dynamic tags (seconds)."]},
+		{key = "tagMonitorSlow",   order = 4, name = L["Slow tag refresh"],      desc = L["Refresh rate for slowly changing tags like AFK timers (seconds)."]},
+		{key = "fakeCastMonitor",  order = 5, name = L["Fake cast monitor"],     desc = L["Polling rate for cast bars on non-event units like focus target (seconds)."]},
+		{key = "combatIndicator",  order = 6, name = L["Combat indicator"],      desc = L["How often to poll NPC combat status for the combat indicator (seconds)."]},
+		{key = "tempEnchantScan",  order = 7, name = L["Temp enchant scan"],     desc = L["How often to scan for temporary weapon enchants (seconds)."]},
+	}
+
+	for _, def in ipairs(sliderDefs) do
+		local rateDef = Perf:GetRateDefinition(def.key)
+		rateSliders[def.key] = {
+			order = def.order,
+			type = "range",
+			name = def.name,
+			desc = def.desc,
+			min = rateDef.min,
+			max = rateDef.max,
+			step = 0.05,
+			get = function() return ShadowUF.db.profile.performance[def.key] end,
+			set = function(info, value)
+				ShadowUF.db.profile.performance[def.key] = value
+				Perf:FireCallback(def.key)
+			end,
+		}
+	end
+
+	rateSliders.help = {
+		order = 0,
+		type = "description",
+		name = L["Adjust polling and refresh rates for various addon subsystems. Lower values = more responsive but higher CPU usage. Higher values = less CPU but slower updates."],
+		fontSize = "medium",
+	}
+
+	rateSliders.reset = {
+		order = 8,
+		type = "execute",
+		name = L["Reset to defaults"],
+		desc = L["Reset all performance settings to their default values."],
+		func = function()
+			for _, key in ipairs(Perf:GetAllRateKeys()) do
+				local rateDef = Perf:GetRateDefinition(key)
+				ShadowUF.db.profile.performance[key] = rateDef.default
+				Perf:FireCallback(key)
+			end
+		end,
+	}
+
+	options.args.performance = {
+		type = "group",
+		name = L["Performance"],
+		desc = L["Performance settings"],
+		args = rateSliders,
+	}
+end
+
 local function loadOptions()
 	options = {
 		type = "group",
@@ -8159,6 +8221,7 @@ local function loadOptions()
 	-- loadFilterOptions()  -- DISABLED: Not compatible with WoW 12.0
 	loadVisibilityOptions()
 	loadAuraIndicatorsOptions()
+	loadPerformanceOptions()
 
 	-- Ordering
 	options.args.general.order = 1
@@ -8170,6 +8233,7 @@ local function loadOptions()
 	options.args.hideBlizzard.order = 5
 	options.args.visibility.order = 6
 	options.args.tags.order = 7
+	options.args.performance.order = 7.5
 
 	-- So modules can access it easier/debug
 	Config.options = options
