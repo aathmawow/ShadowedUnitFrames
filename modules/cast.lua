@@ -8,11 +8,14 @@ ShadowUF:RegisterModule(Cast, "castBar", L["Cast bar"], true)
 -- 12.0: Use durationObject to avoid secret value errors
 local function monitorFakeCast(self)
 	local unit = self.parent.unit
-	local spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = UnitCastingInfo(unit)
+	local ok, spell, displayName, icon, startTime, endTime, isTradeSkill, castID, notInterruptible, spellID = pcall(UnitCastingInfo, unit)
+	if not ok then spell = nil end
 	local isChannelled
-	
+
 	if( not spell ) then
-		spell, displayName, icon, startTime, endTime, isTradeSkill, notInterruptible, spellID = UnitChannelInfo(unit)
+		local ok2
+		ok2, spell, displayName, icon, startTime, endTime, isTradeSkill, notInterruptible, spellID = pcall(UnitChannelInfo, unit)
+		if not ok2 then spell = nil end
 		if spell then
 			isChannelled = true
 		end
@@ -35,10 +38,10 @@ local function monitorFakeCast(self)
 	-- Get duration object
 	local durationObj
 	if (isChannelled) then
-		if (UnitEmpoweredChannelDuration) then durationObj = UnitEmpoweredChannelDuration(unit) end
-		if (not durationObj and UnitChannelDuration) then durationObj = UnitChannelDuration(unit) end
+		if (UnitEmpoweredChannelDuration) then local dok; dok, durationObj = pcall(UnitEmpoweredChannelDuration, unit); if not dok then durationObj = nil end end
+		if (not durationObj and UnitChannelDuration) then local dok; dok, durationObj = pcall(UnitChannelDuration, unit); if not dok then durationObj = nil end end
 	else
-		if (UnitCastingDuration) then durationObj = UnitCastingDuration(unit) end
+		if (UnitCastingDuration) then local dok; dok, durationObj = pcall(UnitCastingDuration, unit); if not dok then durationObj = nil end end
 	end
 	
 	-- New cast or cast changed
@@ -205,7 +208,9 @@ function Cast:OnLayoutApplied(frame, config)
 	-- So we don't have to check the entire thing in an OnUpdate
 	frame.castBar.bar.time.enabled = config.castBar.time.enabled
 
-	if( config.castBar.autoHide and not UnitCastingInfo(frame.unit) and not UnitChannelInfo(frame.unit) ) then
+	local okC, casting = pcall(UnitCastingInfo, frame.unit)
+	local okCh, channeling = pcall(UnitChannelInfo, frame.unit)
+	if( config.castBar.autoHide and not (okC and casting) and not (okCh and channeling) ) then
 		ShadowUF.Layout:SetBarVisibility(frame, "castBar", false)
 	end
 end

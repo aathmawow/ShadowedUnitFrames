@@ -22,7 +22,9 @@ function Druid:OnLayoutApplied(frame)
 end
 
 function Druid:PowerChanged(frame)
-	local visible = UnitPowerType(frame.unit) ~= Enum.PowerType.Mana and not frame.inVehicle
+	local ok, pt = pcall(UnitPowerType, frame.unit)
+	if not ok then return end
+	local visible = pt ~= Enum.PowerType.Mana and not frame.inVehicle
 	local type = visible and "RegisterUnitEvent" or "UnregisterSingleEvent"
 
 	frame[type](frame, "UNIT_POWER_FREQUENT", self, "Update")
@@ -34,6 +36,9 @@ end
 
 function Druid:Update(frame, event, unit, powerType)
 	if( powerType and powerType ~= "MANA" ) then return end
-	frame.druidBar:SetMinMaxValues(0, UnitPowerMax(frame.unit, Enum.PowerType.Mana))
-	frame.druidBar:SetValue(UnitIsDeadOrGhost(frame.unit) and 0 or not UnitIsConnected(frame.unit) and 0 or UnitPower(frame.unit, Enum.PowerType.Mana))
+	local okMax, max = pcall(UnitPowerMax, frame.unit, Enum.PowerType.Mana)
+	local okPow, pow = pcall(UnitPower, frame.unit, Enum.PowerType.Mana)
+	if not okMax or not okPow then return end
+	frame.druidBar:SetMinMaxValues(0, max)
+	frame.druidBar:SetValue(UnitIsDeadOrGhost(frame.unit) and 0 or not UnitIsConnected(frame.unit) and 0 or pow)
 end

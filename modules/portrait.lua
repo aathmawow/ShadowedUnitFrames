@@ -49,7 +49,8 @@ end
 function Portrait:UpdateFunc(frame)
 	-- Portrait models can't be updated unless the GUID changed or else you have the animation jumping around
 	if( ShadowUF.db.profile.units[frame.unitType].portrait.type == "3D" ) then
-		local guid = UnitGUID(frame.unitOwner)
+		local okG, guid = pcall(UnitGUID, frame.unitOwner)
+		if not okG then guid = nil end
 		local prev = frame.portrait.guid
 
 		-- Only compare when it is safe (not secret + caller can access the value).

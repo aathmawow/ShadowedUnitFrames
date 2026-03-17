@@ -1464,7 +1464,7 @@ function Units:UninitializeFrame(type)
 		for frame in pairs(frameList) do
 			if( frame.unitType == type ) then
 				UnregisterUnitWatch(frame)
-				frame:SetAttribute("state-unitexits", false)
+				frame:SetAttribute("state-unitexists", false)
 				frame:Hide()
 			end
 		end

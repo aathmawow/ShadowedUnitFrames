@@ -772,7 +772,7 @@ local function basicHideBlizzardFrames(...)
 	end
 end
 
-local function hideBlizzardFrames(taint, ...)
+local function hideBlizzardFrames(...)
 	for i=1, select("#", ...) do
 		local frame = select(i, ...)
 		UnregisterUnitWatch(frame)
@@ -784,36 +784,34 @@ local function hideBlizzardFrames(taint, ...)
 		if( frame.spellbar ) then frame.spellbar:UnregisterAllEvents() end
 		if( frame.powerBarAlt ) then frame.powerBarAlt:UnregisterAllEvents() end
 
-		if( taint ) then
-			frame.Show = ShadowUF.noop
-		else
+		if( not InCombatLockdown() ) then
 			frame:SetParent(ShadowUF.hiddenFrame)
-			frame:HookScript("OnShow", rehideFrame)
 		end
+		frame:HookScript("OnShow", rehideFrame)
 	end
 end
 
 local active_hiddens = {}
 function ShadowUF:HideBlizzardFrames()
 	if( self.db.profile.hidden.cast and not active_hiddens.cast ) then
-		hideBlizzardFrames(true, PlayerCastingBarFrame, PetCastingBarFrame)
+		hideBlizzardFrames(PlayerCastingBarFrame, PetCastingBarFrame)
 	end
 
 	if( self.db.profile.hidden.party and not active_hiddens.party ) then
 		if( PartyFrame ) then
-			hideBlizzardFrames(false, PartyFrame)
+			hideBlizzardFrames(PartyFrame)
 			for memberFrame in PartyFrame.PartyMemberFramePool:EnumerateActive() do
 				if memberFrame.HealthBarContainer and memberFrame.HealthBarContainer.HealthBar then
-					hideBlizzardFrames(false, memberFrame, memberFrame.HealthBarContainer.HealthBar, memberFrame.ManaBar)
+					hideBlizzardFrames(memberFrame, memberFrame.HealthBarContainer.HealthBar, memberFrame.ManaBar)
 				else
-					hideBlizzardFrames(false, memberFrame, memberFrame.HealthBar, memberFrame.ManaBar)
+					hideBlizzardFrames(memberFrame, memberFrame.HealthBar, memberFrame.ManaBar)
 				end
 			end
 			PartyFrame.PartyMemberFramePool:ReleaseAll()
 		else
 			for i=1, MAX_PARTY_MEMBERS do
 				local name = "PartyMemberFrame" .. i
-				hideBlizzardFrames(false, _G[name], _G[name .. "HealthBar"], _G[name .. "ManaBar"])
+				hideBlizzardFrames(_G[name], _G[name .. "HealthBar"], _G[name .. "ManaBar"])
 			end
 		end
 
@@ -822,7 +820,7 @@ function ShadowUF:HideBlizzardFrames()
 
 		-- This just makes sure
 		if( CompactPartyFrame ) then
-			hideBlizzardFrames(false, CompactPartyFrame)
+			hideBlizzardFrames(CompactPartyFrame)
 		end
 	end
 
@@ -855,11 +853,11 @@ function ShadowUF:HideBlizzardFrames()
 	end
 
 	if( self.db.profile.hidden.buffs and not active_hiddens.buffs ) then
-		hideBlizzardFrames(false, BuffFrame, DebuffFrame)
+		hideBlizzardFrames(BuffFrame, DebuffFrame)
 	end
 
 	if( self.db.profile.hidden.player and not active_hiddens.player ) then
-		hideBlizzardFrames(false, PlayerFrame, AlternatePowerBar)
+		hideBlizzardFrames(PlayerFrame, AlternatePowerBar)
 
 		-- We keep these in case someone is still using the default auras, otherwise it messes up vehicle stuff
 		PlayerFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -877,30 +875,30 @@ function ShadowUF:HideBlizzardFrames()
 	end
 
 	if( self.db.profile.hidden.pet and not active_hiddens.pet ) then
-		hideBlizzardFrames(false, PetFrame)
+		hideBlizzardFrames(PetFrame)
 	end
 
 	if( self.db.profile.hidden.target and not active_hiddens.target ) then
-		hideBlizzardFrames(false, TargetFrame, ComboFrame, TargetFrameToT)
+		hideBlizzardFrames(TargetFrame, ComboFrame, TargetFrameToT)
 	end
 
 	if( self.db.profile.hidden.focus and not active_hiddens.focus ) then
-		hideBlizzardFrames(false, FocusFrame, FocusFrameToT)
+		hideBlizzardFrames(FocusFrame, FocusFrameToT)
 	end
 
 	if( self.db.profile.hidden.boss and not active_hiddens.boss ) then
-		hideBlizzardFrames(false, BossTargetFrameContainer)
+		hideBlizzardFrames(BossTargetFrameContainer)
 
 		for i=1, MAX_BOSS_FRAMES do
 			local name = "Boss" .. i .. "TargetFrame"
 			if _G[name].TargetFrameContent then
 				if _G[name].TargetFrameContent.TargetFrameContentMain.HealthBarsContainer then
-					hideBlizzardFrames(false, _G[name], _G[name].TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar, _G[name].TargetFrameContent.TargetFrameContentMain.ManaBar)
+					hideBlizzardFrames(_G[name], _G[name].TargetFrameContent.TargetFrameContentMain.HealthBarsContainer.HealthBar, _G[name].TargetFrameContent.TargetFrameContentMain.ManaBar)
 				else
-					hideBlizzardFrames(false, _G[name], _G[name].TargetFrameContent.TargetFrameContentMain.HealthBar, _G[name].TargetFrameContent.TargetFrameContentMain.ManaBar)
+					hideBlizzardFrames(_G[name], _G[name].TargetFrameContent.TargetFrameContentMain.HealthBar, _G[name].TargetFrameContent.TargetFrameContentMain.ManaBar)
 				end
 			else
-				hideBlizzardFrames(false, _G[name], _G[name .. "HealthBar"], _G[name .. "ManaBar"])
+				hideBlizzardFrames(_G[name], _G[name .. "HealthBar"], _G[name .. "ManaBar"])
 			end
 		end
 	end
@@ -908,11 +906,29 @@ function ShadowUF:HideBlizzardFrames()
 	if( self.db.profile.hidden.arena and not active_hiddens.arenaTriggered ) then
 		active_hiddens.arenaTriggered = true
 
-		hideBlizzardFrames(true, ArenaEnemyFramesContainer, ArenaEnemyPrepFramesContainer, ArenaEnemyMatchFramesContainer)
+		hideBlizzardFrames(ArenaEnemyFramesContainer, ArenaEnemyPrepFramesContainer, ArenaEnemyMatchFramesContainer)
+
+		-- Also silence individual child frames — they have their own events
+		-- that trigger ArenaEnemyFramesContainer:Update() and cause taint
+		for i = 1, MAX_ARENA_ENEMIES or 5 do
+			local matchFrame = _G["ArenaEnemyMatchFrame"..i]
+			if matchFrame then
+				matchFrame:UnregisterAllEvents()
+				if matchFrame.healthbar then matchFrame.healthbar:UnregisterAllEvents() end
+				if matchFrame.manabar then matchFrame.manabar:UnregisterAllEvents() end
+				if matchFrame.spellbar then matchFrame.spellbar:UnregisterAllEvents() end
+				local petFrame = _G["ArenaEnemyMatchFrame"..i.."PetFrame"]
+				if petFrame then
+					petFrame:UnregisterAllEvents()
+					if petFrame.healthbar then petFrame.healthbar:UnregisterAllEvents() end
+					if petFrame.manabar then petFrame.manabar:UnregisterAllEvents() end
+				end
+			end
+		end
 	end
 
 	if( self.db.profile.hidden.playerAltPower and not active_hiddens.playerAltPower ) then
-		hideBlizzardFrames(false, PlayerPowerBarAlt)
+		hideBlizzardFrames(PlayerPowerBarAlt)
 	end
 
 	-- As a reload is required to reset the hidden hooks, we can just set this to true if anything is true

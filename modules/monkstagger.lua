@@ -50,8 +50,8 @@ function Stagger.ComputeColorState(stagger, maxHealth)
 end
 
 function Stagger:Update(frame)
-	local stagger = UnitStagger(frame.unit)
-	if not stagger then return end
+	local okS, stagger = pcall(UnitStagger, frame.unit)
+	if not okS or not stagger then return end
 
 	frame.staggerBar:SetValue(stagger)
 

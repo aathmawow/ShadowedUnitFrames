@@ -94,7 +94,8 @@ end
 -- Update the cached power type
 function Tags:UpdatePowerType(frame)
 	if( not frame.unit or not UnitExists(frame.unit) ) then return end
-	local powerID, powerType = UnitPowerType(frame.unit)
+	local ok, powerID, powerType = pcall(UnitPowerType, frame.unit)
+	if not ok then return end
 	if( not powerMap[powerType] ) then powerType = powerMap[powerID] or "ENERGY" end
 
 	for _, fontString in pairs(frame.fontStrings) do
@@ -232,7 +233,8 @@ local function createTagFunction(tags, resetCache)
 		end
 
 		for id = 1, #args do
-			temp[id] = args[id](fontString.parent.unit, fontString.parent.unitOwner, fontString) or ""
+			local ok, result = pcall(args[id], fontString.parent.unit, fontString.parent.unitOwner, fontString)
+			temp[id] = (ok and result) or ""
 		end
 
 		fontString:SetFormattedText(formattedText, unpack(temp))
