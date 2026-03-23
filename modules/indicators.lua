@@ -54,22 +54,16 @@ end
 function Indicators:SummonPending(frame)
 	if( not frame.indicators.sumPending or not frame.indicators.sumPending.enabled ) then return end
 
-	if( C_IncomingSummon.HasIncomingSummon(frame.unit) ) then
-		if( C_IncomingSummon.IncomingSummonStatus(frame.unit) == 1 ) then
-			frame.indicators.sumPending:SetTexture("Interface\\RaidFrame\\RaidFrameSummon")
-			frame.indicators.sumPending:SetTexCoord(0.539062, 0.789062, 0.015625, 0.515625)
-			frame.indicators.sumPending:Show()
-		elseif( C_IncomingSummon.IncomingSummonStatus(frame.unit) == 2 ) then
-			frame.indicators.sumPending:SetTexture("Interface\\RaidFrame\\RaidFrameSummon")
-			frame.indicators.sumPending:SetTexCoord(0.0078125, 0.257812, 0.015625, 0.515625)
-			frame.indicators.sumPending:Show()
-		elseif( C_IncomingSummon.IncomingSummonStatus(frame.unit) == 3 ) then
-			frame.indicators.sumPending:SetTexture("Interface\\RaidFrame\\RaidFrameSummon")
-			frame.indicators.sumPending:SetTexCoord(0.273438, 0.523438, 0.015625, 0.515625)
-			frame.indicators.sumPending:Show()
-		else
-			frame.indicators.sumPending:Hide()
-		end
+	local status = C_IncomingSummon.HasIncomingSummon(frame.unit) and C_IncomingSummon.IncomingSummonStatus(frame.unit)
+	if( status == 1 ) then
+		frame.indicators.sumPending:SetAtlas("RaidFrame-Icon-SummonPending")
+		frame.indicators.sumPending:Show()
+	elseif( status == 2 ) then
+		frame.indicators.sumPending:SetAtlas("RaidFrame-Icon-SummonAccepted")
+		frame.indicators.sumPending:Show()
+	elseif( status == 3 ) then
+		frame.indicators.sumPending:SetAtlas("RaidFrame-Icon-SummonDeclined")
+		frame.indicators.sumPending:Show()
 	else
 		frame.indicators.sumPending:Hide()
 	end
@@ -413,7 +407,6 @@ function Indicators:OnEnable(frame)
 		frame:RegisterUpdateFunc(self, "SummonPending")
 
 		frame.indicators.sumPending = frame.indicators.sumPending or frame.indicators:CreateTexture(nil, "OVERLAY")
-		frame.indicators.sumPending:SetTexture("Interface\\RaidFrame\\RaidFrameSummon")
 	end
 
 	if( config.indicators.pvp and config.indicators.pvp.enabled ) then
