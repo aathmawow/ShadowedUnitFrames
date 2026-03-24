@@ -2474,6 +2474,26 @@ local function loadUnitOptions()
 						return not (cfg and cfg.enabled)
 					end,
 				},
+				useFilter = {
+					order = 1.9,
+					type = "toggle",
+					name = L["Blacklist / Whitelist"],
+					desc = L["Apply the blacklist/whitelist from the Aura Filters tab to this frame. This is separate from the Blizzard API filter above."],
+					get = function(info)
+						local auraType = info[#(info) - 2]
+						local cfg = getAuraFrameConfig(info[2], auraType, frameIndex)
+						return cfg and cfg.useFilter
+					end,
+					set = function(info, value)
+						local auraType = info[#(info) - 2]
+						setAuraFrameValue(info[2], auraType, frameIndex, "useFilter", value)
+					end,
+					disabled = function(info)
+						local auraType = info[#(info) - 2]
+						local cfg = getAuraFrameConfig(info[2], auraType, frameIndex)
+						return not (cfg and cfg.enabled)
+					end,
+				},
 				filter = {
 					order = 2,
 					type = "select",
@@ -5817,23 +5837,36 @@ end
 -- FILTER CONFIGURATION
 ---------------------
 local function loadFilterOptions()
-	local hasWhitelist, hasBlacklist, hasOverridelist, rebuildFilters
+	local hasWhitelist, hasBlacklist, rebuildFilters
 	local filterMap, spellMap = {}, {}
 
-	local manageFiltersTable = {
-		order = function(info) return info[#(info)] == "whitelists" and 1 or info[#(info)] == "blacklists" and 2 or 3 end,
-		type = "group",
-		name = function(info) return info[#(info)] == "whitelists" and L["Whitelists"] or info[#(info)] == "blacklists" and L["Blacklists"] or L["Override lists"] end,
-		args = {
-		},
-	}
+	-- Build dropdown values from Blizzard whitelisted spells, grouped by class
+	local whitelistedSpellValues = {}
+	local whitelistedSpellOrder = {}
+	local function buildWhitelistedSpellDropdown()
+		table.wipe(whitelistedSpellValues)
+		table.wipe(whitelistedSpellOrder)
+		local whitelistedSpells = ShadowUF.modules.auraIndicators and ShadowUF.modules.auraIndicators.whitelistedSpells or {}
+		local sorted = {}
+		for id, data in pairs(whitelistedSpells) do
+			sorted[#sorted + 1] = {id = id, name = data.name, group = data.group}
+		end
+		table.sort(sorted, function(a, b)
+			if a.group == b.group then return a.name < b.name end
+			return a.group < b.group
+		end)
+		for i, entry in ipairs(sorted) do
+			local icon = GetSpellTexture(entry.id)
+			local iconStr = icon and string.format("|T%s:14:14:0:0|t ", icon) or ""
+			whitelistedSpellValues[entry.id] = string.format("%s%s (#%d) [%s]", iconStr, entry.name, entry.id, entry.group)
+			whitelistedSpellOrder[#whitelistedSpellOrder + 1] = entry.id
+		end
+	end
 
 	local function reloadUnitAuras()
 		for _, frame in pairs(ShadowUF.Units.unitFrames) do
 			if( UnitExists(frame.unit) ) then
-				-- Re-evaluate visibility (handles enabling/disabling aura frames)
-				frame:SetVisibility()
-				ShadowUF.Layout:Load(frame)
+				ShadowUF.modules.auras:UpdateFilter(frame)
 				frame:FullUpdate()
 			end
 		end
@@ -5854,6 +5887,9 @@ local function loadFilterOptions()
 		return ShadowUF.db.profile.filters[filterType][filter][info[#(info)]]
 	end
 
+	-- State for spell add dropdown per filter
+	local selectedSpell = {}
+
 	--- Container widget for the filter listing
 	local filterEditTable = {
 		order = 0,
@@ -5868,20 +5904,43 @@ local function loadFilterOptions()
 				hidden = false,
 				inline = true,
 				args = {
-					add = {
+					addSpell = {
 						order = 0,
-						type = "input",
-						name = L["Aura name or spell ID"],
-						--dialogControl = "Aura_EditBox",
+						type = "select",
+						name = L["Add spell"],
+						width = "double",
+						values = function() return whitelistedSpellValues end,
+						sorting = function() return whitelistedSpellOrder end,
 						hidden = false,
+						get = function(info)
+							local filter = filterMap[info[#(info) - 2]]
+							return selectedSpell[filter]
+						end,
 						set = function(info, value)
+							local filter = filterMap[info[#(info) - 2]]
+							selectedSpell[filter] = value
+						end,
+					},
+					addButton = {
+						order = 0.5,
+						type = "execute",
+						name = L["Add"],
+						width = "half",
+						hidden = false,
+						disabled = function(info)
+							local filter = filterMap[info[#(info) - 2]]
+							return not selectedSpell[filter]
+						end,
+						func = function(info)
 							local filterType = info[#(info) - 3]
 							local filter = filterMap[info[#(info) - 2]]
-
-							ShadowUF.db.profile.filters[filterType][filter][value] = true
-
-							reloadUnitAuras()
-							rebuildFilters()
+							local spell = selectedSpell[filter]
+							if spell then
+								ShadowUF.db.profile.filters[filterType][filter][tonumber(spell)] = true
+								selectedSpell[filter] = nil
+								reloadUnitAuras()
+								rebuildFilters()
+							end
 						end,
 					},
 					delete = {
@@ -5897,8 +5956,7 @@ local function loadFilterOptions()
 
 							ShadowUF.db.profile.filters[filterType][filter] = nil
 
-							-- Delete anything that used this filter too
-							local filterList = filterType == "whitelists" and ShadowUF.db.profile.filters.zonewhite or filterType == "blacklists" and ShadowUF.db.profile.filters.zoneblack or filterType == "overridelists" and ShadowUF.db.profile.filters.zoneoverride
+							local filterList = filterType == "whitelists" and ShadowUF.db.profile.filters.zonewhite or ShadowUF.db.profile.filters.zoneblack
 							if filterList then
 								for id, filterUsed in pairs(filterList) do
 									if( filterUsed == filter ) then
@@ -5958,13 +6016,13 @@ local function loadFilterOptions()
 		width = "double",
 		fontSize = "medium",
 		name = function(info)
-				local name = spellMap[info[#(info)]]
-				if tonumber(name) then
-					local spellName = GetSpellName(name)
-					local icon = GetSpellTexture(name)
-					name = string.format("|T%s:14:14:0:0|t %s (#%i)", icon or "Interface\\Icons\\Inv_misc_questionmark", spellName or L["Unknown"], name)
+				local id = spellMap[info[#(info)]]
+				if id then
+					local spellName = GetSpellName(id)
+					local icon = GetSpellTexture(id)
+					return string.format("|T%s:14:14:0:0|t %s (#%s)", icon or "Interface\\Icons\\Inv_misc_questionmark", spellName or L["Unknown"], tostring(id))
 				end
-				return name
+				return L["Unknown"]
 			end,
 	}
 
@@ -5991,11 +6049,10 @@ local function loadFilterOptions()
 		name = L["This filter has no auras in it, you will have to add some using the dialog above."],
 	}
 
-	-- The filter [View] widgets for manage aura filters
 	local filterLabel = {
 		order = function(info) return tonumber(string.match(info[#(info)], "(%d+)")) end,
 		type = "description",
-		width = "", -- Odd I know, AceConfigDialog-3.0 expands descriptions to full width if width is nil
+		width = "",
 		fontSize = "medium",
 		name = function(info) return filterMap[info[#(info)]] end,
 	}
@@ -6019,26 +6076,24 @@ local function loadFilterOptions()
 		name = L["You do not have any filters of this type added yet, you will have to create one in the management panel before this page is useful."],
 	}
 
-	-- Container table for a filter zone
 	local globalSettings = {}
 	local zoneList = {"none", "pvp", "arena", "party", "raid"}
 	local filterTable = {
 		order = function(info) return info[#(info)] == "global" and 1 or info[#(info)] == "none" and 2 or 3 end,
 		type = "group",
 		inline = true,
-		hidden = function() return not hasWhitelist and not hasBlacklist and not hasOverridelist end,
+		hidden = function() return not hasWhitelist and not hasBlacklist end,
 		name = function(info) return AREA_NAMES[info[#(info)]] or L["Global"] end,
 		set = function(info, value)
 			local filter = filterMap[info[#(info)]]
 			local zone = info[#(info) - 1]
 			local unit = info[#(info) - 2]
-			local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or ShadowUF.db.profile.filters.blacklists[filter] and "zoneblack" or "zoneoverride"
+			local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or "zoneblack"
 
 			for _, zoneConfig in pairs(zoneList) do
 				if( zone == "global" or zoneConfig == zone ) then
 					if( unit == "global" ) then
 						globalSettings[zoneConfig .. filterKey] = value and filter or false
-
 						for _, unitEntry in pairs(ShadowUF.unitList) do
 							ShadowUF.db.profile.filters[filterKey][zoneConfig .. unitEntry] = value and filter or nil
 						end
@@ -6061,20 +6116,20 @@ local function loadFilterOptions()
 
 			if( unit == "global" or zone == "global" ) then
 				local id = zone == "global" and zone .. unit or zone
-				local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or ShadowUF.db.profile.filters.blacklists[filter] and "zoneblack" or "zoneoverride"
+				local filterKey = ShadowUF.db.profile.filters.whitelists[filter] and "zonewhite" or "zoneblack"
 
 				if( info[#(info)] == "nofilter" ) then
-					return globalSettings[id .. "zonewhite"] == false and globalSettings[id .. "zoneblack"] == false and globalSettings[id .. "zoneoverride"] == false
+					return globalSettings[id .. "zonewhite"] == false and globalSettings[id .. "zoneblack"] == false
 				end
 
 				return globalSettings[id .. filterKey] == filter
 			end
 
 			if( info[#(info)] == "nofilter" ) then
-				return not ShadowUF.db.profile.filters.zonewhite[zone .. unit] and not ShadowUF.db.profile.filters.zoneblack[zone .. unit] and not ShadowUF.db.profile.filters.zoneoverride[zone .. unit]
+				return not ShadowUF.db.profile.filters.zonewhite[zone .. unit] and not ShadowUF.db.profile.filters.zoneblack[zone .. unit]
 			end
 
-			return ShadowUF.db.profile.filters.zonewhite[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneblack[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneoverride[zone .. unit] == filter
+			return ShadowUF.db.profile.filters.zonewhite[zone .. unit] == filter or ShadowUF.db.profile.filters.zoneblack[zone .. unit] == filter
 		end,
 		args = {
 			nofilter = {
@@ -6092,17 +6147,13 @@ local function loadFilterOptions()
 							if( unit == "global" ) then
 								globalSettings[zoneConfig .. "zonewhite"] = false
 								globalSettings[zoneConfig .. "zoneblack"] = false
-								globalSettings[zoneConfig .. "zoneoverride"] = false
-
 								for _, unitEntry in pairs(ShadowUF.unitList) do
 									ShadowUF.db.profile.filters.zonewhite[zoneConfig .. unitEntry] = nil
 									ShadowUF.db.profile.filters.zoneblack[zoneConfig .. unitEntry] = nil
-									ShadowUF.db.profile.filters.zoneoverride[zoneConfig .. unitEntry] = nil
 								end
 							else
 								ShadowUF.db.profile.filters.zonewhite[zoneConfig .. unit] = nil
 								ShadowUF.db.profile.filters.zoneblack[zoneConfig .. unit] = nil
-								ShadowUF.db.profile.filters.zoneoverride[zoneConfig .. unit] = nil
 							end
 						end
 					end
@@ -6110,7 +6161,6 @@ local function loadFilterOptions()
 					if( zone == "global" ) then
 						globalSettings[zone .. unit .. "zonewhite"] = false
 						globalSettings[zone .. unit .. "zoneblack"] = false
-						globalSettings[zone .. unit .. "zoneoverride"] = false
 					end
 
 					reloadUnitAuras()
@@ -6125,26 +6175,20 @@ local function loadFilterOptions()
 			black = {
 				order = 3,
 				type = "header",
-				name = L["Blacklists"], -- In theory I would make this black, but as black doesn't work with a black background I'll skip that
+				name = L["Blacklists"],
 				hidden = function(info) return not hasBlacklist end
-			},
-			override = {
-				order = 5,
-				type = "header",
-				name = L["Override lists"], -- In theory I would make this black, but as black doesn't work with a black background I'll skip that
-				hidden = function(info) return not hasOverridelist end
 			},
 		},
 	}
 
-	-- Toggle used for set filter zones to enable filters
 	local filterToggle = {
-		order = function(info) return ShadowUF.db.profile.filters.whitelists[filterMap[info[#(info)]]] and 2 or ShadowUF.db.profile.filters.blacklists[filterMap[info[#(info)]]] and 4 or 6 end,
+		order = function(info) return ShadowUF.db.profile.filters.whitelists[filterMap[info[#(info)]]] and 2 or 4 end,
 		type = "toggle",
 		name = function(info) return filterMap[info[#(info)]] end,
 		desc = function(info)
 			local filter = filterMap[info[#(info)]]
-			filter = ShadowUF.db.profile.filters.whitelists[filter] or ShadowUF.db.profile.filters.blacklists[filter] or ShadowUF.db.profile.filters.overridelists[filter]
+			filter = ShadowUF.db.profile.filters.whitelists[filter] or ShadowUF.db.profile.filters.blacklists[filter]
+			if not filter then return "" end
 			if( filter.buffs and filter.debuffs ) then
 				return L["Filtering both buffs and debuffs"]
 			elseif( filter.buffs ) then
@@ -6157,20 +6201,18 @@ local function loadFilterOptions()
 		end,
 	}
 
-	-- Load existing filters in
-	-- This needs to be cleaned up later
 	local filterID, spellID = 0, 0
 	local function buildList(type)
 		local manageFiltersTableEntry = {
-			order = type == "whitelists" and 1 or type == "blacklists" and 2 or 3,
+			order = type == "whitelists" and 1 or 2,
 			type = "group",
-			name = type == "whitelists" and L["Whitelists"] or type == "blacklists" and L["Blacklists"] or L["Override lists"],
+			name = type == "whitelists" and L["Whitelists"] or L["Blacklists"],
 			args = {
 				groups = {
 					order = 0,
 					type = "group",
 					inline = true,
-					name = function(info) return info[#(info) - 1] == "whitelists" and L["Whitelist filters"] or info[#(info) - 1] == "blacklists" and L["Blacklist filters"] or L["Override list filters"] end,
+					name = function(info) return info[#(info) - 1] == "whitelists" and L["Whitelist filters"] or L["Blacklist filters"] end,
 					args = {
 					},
 				},
@@ -6191,12 +6233,12 @@ local function loadFilterOptions()
 			filterTable.args[tostring(filterID)] = filterToggle
 
 			local hasSpells
-			for spellName in pairs(spells) do
-				if( spellName ~= "buffs" and spellName ~= "debuffs" ) then
+			for spellKey in pairs(spells) do
+				if( spellKey ~= "buffs" and spellKey ~= "debuffs" ) then
 					hasSpells = true
 					spellID = spellID + 1
-					spellMap[tostring(spellID)] = spellName
-					spellMap[spellID .. "label"] = spellName
+					spellMap[tostring(spellID)] = spellKey
+					spellMap[spellID .. "label"] = spellKey
 
 					manageFiltersTableEntry.args[tostring(filterID)].args.spells.args[spellID .. "label"] = spellLabel
 					manageFiltersTableEntry.args[tostring(filterID)].args.spells.args[tostring(spellID)] = spellRow
@@ -6209,7 +6251,7 @@ local function loadFilterOptions()
 		end
 
 		if( not hasFilters ) then
-			if( type == "whitelists" ) then hasWhitelist = nil elseif( type == "blacklists" ) then hasBlacklist = nil else hasOverridelist = nil end
+			if( type == "whitelists" ) then hasWhitelist = nil else hasBlacklist = nil end
 			manageFiltersTableEntry.args.groups.args.noFilters = noFilters
 		end
 
@@ -6223,14 +6265,12 @@ local function loadFilterOptions()
 		filterID = 0
 		hasBlacklist = true
 		hasWhitelist = true
-		hasOverridelist = true
 
 		table.wipe(filterMap)
 		table.wipe(spellMap)
 
 		options.args.filter.args.filters.args.whitelists = buildList("whitelists")
 		options.args.filter.args.filters.args.blacklists = buildList("blacklists")
-		options.args.filter.args.filters.args.overridelists = buildList("overridelists")
 	end
 
 	local unitFilterSelection = {
@@ -6250,7 +6290,7 @@ local function loadFilterOptions()
 				type = "group",
 				inline = true,
 				name = L["Help"],
-				hidden = function() return hasWhitelist or hasBlacklist or hasOverridelist end,
+				hidden = function() return hasWhitelist or hasBlacklist end,
 				args = {
 					help = {
 						type = "description",
@@ -6263,7 +6303,7 @@ local function loadFilterOptions()
 				order = 0,
 				type = "header",
 				name = function(info) return (info[#(info) - 1] == "global" and L["Global"] or L.units[info[#(info) - 1]]) end,
-				hidden = function() return not hasWhitelist and not hasBlacklist and not hasOverridelist end,
+				hidden = function() return not hasWhitelist and not hasBlacklist end,
 			},
 			global = filterTable,
 			none = filterTable,
@@ -6321,7 +6361,7 @@ local function loadFilterOptions()
 								args = {
 									help = {
 										type = "description",
-										name = L["Whitelists will hide any aura not in the filter group.|nBlacklists will hide auras that are in the filter group.|nOverride lists will bypass any filter and always be shown."],
+										name = L["Whitelists will hide any aura not in the filter group.|nBlacklists will hide auras that are in the filter group.|nOnly Blizzard whitelisted spells (non-secret in combat) can be added to filters."],
 										width = "full",
 									}
 								},
@@ -6377,15 +6417,6 @@ local function loadFilterOptions()
 												end
 											end
 
-											for filter in pairs(ShadowUF.db.profile.filters.overridelists) do
-												if( string.lower(filter) == name ) then
-													addFilter.error = string.format(L["The override list \"%s\" already exists."], value)
-													addFilter.errorName = value
-													AceRegistry:NotifyChange("ShadowedUF")
-													return ""
-												end
-											end
-
 											addFilter.error = nil
 											addFilter.errorName = nil
 											return true
@@ -6396,7 +6427,7 @@ local function loadFilterOptions()
 										type = "select",
 										name = L["Filter type"],
 										set = function(info, value) addFilter[info[#(info)]] = value end,
-										values = {["whitelists"] = L["Whitelist"], ["blacklists"] = L["Blacklist"], ["overridelists"] = L["Override list"]},
+										values = {["whitelists"] = L["Whitelist"], ["blacklists"] = L["Blacklist"]},
 									},
 									add = {
 										order = 2,
@@ -6431,12 +6462,12 @@ local function loadFilterOptions()
 		},
 	}
 
-
 	options.args.filter.args.groups.args.global = unitFilterSelection
 	for _, unit in pairs(ShadowUF.unitList) do
 		options.args.filter.args.groups.args[unit] = unitFilterSelection
 	end
 
+	buildWhitelistedSpellDropdown()
 	rebuildFilters()
 end
 
@@ -8376,7 +8407,7 @@ local function loadOptions()
 	loadUnitOptions()
 	loadHideOptions()
 	loadTagOptions()
-	-- loadFilterOptions()  -- DISABLED: Not compatible with WoW 12.0
+	loadFilterOptions()
 	loadVisibilityOptions()
 	loadAuraIndicatorsOptions()
 	loadPerformanceOptions()
@@ -8386,7 +8417,7 @@ local function loadOptions()
 	options.args.profile.order = 1.5
 	options.args.enableUnits.order = 2
 	options.args.units.order = 3
-	-- options.args.filter.order = 4  -- DISABLED: Not compatible with WoW 12.0
+	options.args.filter.order = 4
 	options.args.auraIndicators.order = 4.5
 	options.args.hideBlizzard.order = 5
 	options.args.visibility.order = 6

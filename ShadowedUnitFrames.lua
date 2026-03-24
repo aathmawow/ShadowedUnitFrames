@@ -5,7 +5,7 @@
 ShadowUF = select(2, ...)
 
 local L = ShadowUF.L
-ShadowUF.dbRevision = 66
+ShadowUF.dbRevision = 67
 ShadowUF.playerUnit = "player"
 ShadowUF.enabledUnits = {}
 ShadowUF.modules = {}
@@ -39,7 +39,7 @@ function ShadowUF:OnInitialize()
 			units = {},
 			positions = {},
 			range = {},
-			filters = {zonewhite = {}, zoneblack = {}, zoneoverride = {}, whitelists = {}, blacklists = {}, overridelists = {}},
+			filters = {zonewhite = {}, zoneblack = {}, whitelists = {}, blacklists = {}},
 			visibility = {arena = {}, pvp = {}, party = {}, raid = {}, neighborhood = {}},
 			hidden = {cast = false, playerPower = true, buffs = false, party = true, raid = false, player = true, pet = true, target = true, focus = true, boss = true, arena = true, playerAltPower = false},
 			performance = {
@@ -353,6 +353,30 @@ function ShadowUF:CheckUpgrade()
 			end
 		end
 	end
+	if( revision <= 66 ) then
+		-- Remove override lists (no longer used in 12.0)
+		self.db.profile.filters.zoneoverride = nil
+		self.db.profile.filters.overridelists = nil
+		-- Convert old string spell keys to numeric spellIDs in whitelists/blacklists
+		for _, lists in pairs({self.db.profile.filters.whitelists, self.db.profile.filters.blacklists}) do
+			for _, filter in pairs(lists) do
+				local toAdd, toRemove = {}, {}
+				for key, val in pairs(filter) do
+					if val == true and type(key) == "string" then
+						local numID = tonumber(key)
+						if numID then
+							toRemove[#toRemove + 1] = key
+							toAdd[numID] = true
+						else
+							toRemove[#toRemove + 1] = key
+						end
+					end
+				end
+				for _, key in ipairs(toRemove) do filter[key] = nil end
+				for id, val in pairs(toAdd) do filter[id] = val end
+			end
+		end
+	end
 end
 
 local function zoneEnabled(zone, zoneList)
@@ -424,20 +448,20 @@ function ShadowUF:LoadUnitDefaults()
 			auraIndicators = {enabled = false},
 			auras = {
 				buffs = {
-					[1] = {enabled = true, temporary = (unit == "player"), clickThrough = false, disableRemovableColor = false, filter = "ALL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
-					[2] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "PLAYER", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
-					[3] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "RAID", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
-					[4] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "BIG_DEFENSIVE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
-					[5] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "EXTERNAL_DEFENSIVE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
-					[6] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "IMPORTANT", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[1] = {enabled = true, temporary = (unit == "player"), clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "ALL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[2] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "PLAYER", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[3] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "RAID", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[4] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "BIG_DEFENSIVE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[5] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "EXTERNAL_DEFENSIVE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
+					[6] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "IMPORTANT", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "TL", x = 0, y = 0, enlarge = {}, timers = {ALL = true}},
 				},
 				debuffs = {
-					[1] = {enabled = true, clickThrough = false, disableRemovableColor = false, filter = "ALL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
-					[2] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "PLAYER", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
-					[3] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "RAID_PLAYER_DISPELLABLE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
-					[4] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "RAID", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
-					[5] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "CROWD_CONTROL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
-					[6] = {enabled = false, clickThrough = false, disableRemovableColor = false, filter = "IMPORTANT", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[1] = {enabled = true, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "ALL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[2] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "PLAYER", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[3] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "RAID_PLAYER_DISPELLABLE", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[4] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "RAID", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[5] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "CROWD_CONTROL", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
+					[6] = {enabled = false, clickThrough = false, disableRemovableColor = false, useFilter = false, filter = "IMPORTANT", anchorMode = "COLUMN", perRow = 10, maxRows = 1, size = 16, selfScale = 1.30, anchorPoint = "BL", x = 0, y = 0, enlarge = {PLAYER = true}, timers = {ALL = true}},
 				},
 				-- Boss debuffs (Private Auras) - player only
 				bossDebuffs = {enabled = false, size = 32, perRow = 3, maxRows = 1, anchorPoint = "C", x = 0, y = 0, showCooldown = true, showCooldownNumbers = true},

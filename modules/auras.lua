@@ -21,6 +21,7 @@ function Auras:OnEnable(frame)
 	frame.auras = frame.auras or {}
 
 	frame:RegisterNormalEvent("PLAYER_ENTERING_WORLD", self, "Update")
+	frame:RegisterNormalEvent("ZONE_CHANGED_NEW_AREA", self, "UpdateFilter")
 	frame:RegisterUnitEvent("UNIT_AURA", self, "Update")
 	frame:RegisterUpdateFunc(self, "Update")
 
@@ -910,10 +911,18 @@ tempEnchantScan = function(self, elapsed)
 	end
 end
 
--- 12.0: Aura filtering now done via API filters (PLAYER, RAID, etc.) instead of addon-side lists
--- This function is kept as a stub for compatibility with existing calls
+-- Zone-based aura filtering (blacklist/whitelist per zone + unit type)
+local filterDefault = {}
 function Auras:UpdateFilter(frame)
-	-- No-op: filtering handled by C_UnitAuras API
+	if not frame.auras then return end
+	local zone = select(2, IsInInstance()) or "none"
+	if( zone == "scenario" ) then zone = "party" end
+	if( zone == "interior" ) then zone = "neighborhood" end
+
+	local white = ShadowUF.db.profile.filters.zonewhite[zone .. frame.unitType]
+	local black = ShadowUF.db.profile.filters.zoneblack[zone .. frame.unitType]
+	frame.auras.whitelist = white and ShadowUF.db.profile.filters.whitelists[white] or filterDefault
+	frame.auras.blacklist = black and ShadowUF.db.profile.filters.blacklists[black] or filterDefault
 end
 
 
@@ -1118,6 +1127,19 @@ local function processAura(parent, frame, type, config, displayConfig, filter, u
 	local caster = isPlayerAura and "player" or nil
 	local spellID = auraData.spellId or 0
 	local auraType = auraData.dispelName
+
+	-- Blacklist/whitelist check (zone-based, non-secret spells only)
+	local whitelist = parent.whitelist
+	local blacklist = parent.blacklist
+	if config.useFilter and (whitelist or blacklist) then
+		local spellStr = tostring(spellID)
+		if whitelist[type] and not whitelist[spellID] and not whitelist[spellStr] then
+			return
+		end
+		if blacklist[type] and (blacklist[spellID] or blacklist[spellStr]) then
+			return
+		end
+	end
 
 	renderAura(parent, frame, type, config, displayConfig, index, filter, isFriendly, curable, name, texture, count, auraType, durationObject, caster, isRemovable, auraData.nameplateShowPersonal, spellID, canApplyAura, isPlayerAura, auraData.auraInstanceID)
 end
