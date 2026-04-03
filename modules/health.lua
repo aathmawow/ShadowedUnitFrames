@@ -62,6 +62,7 @@ function Health.ScanDispellableAura(frame)
 	_dispelCache[frame].auraInstanceID = nil
 
 	if not UnitIsFriend(frame.unit, "player") then return nil, nil end
+	if not UnitIsVisible(frame.unit) then return nil, nil end
 	if not C_UnitAuras or not C_UnitAuras.GetAuraDispelTypeColor then return nil, nil end
 
 	local results = {pcall(C_UnitAuras.GetAuraSlots, frame.unit, "HARMFUL|RAID_PLAYER_DISPELLABLE")}
