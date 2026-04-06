@@ -949,24 +949,19 @@ function ShadowUF:HideBlizzardFrames()
 	if( self.db.profile.hidden.arena and not active_hiddens.arenaTriggered ) then
 		active_hiddens.arenaTriggered = true
 
-		hideBlizzardFrames(ArenaEnemyFramesContainer, ArenaEnemyPrepFramesContainer, ArenaEnemyMatchFramesContainer)
+		-- Hide CompactArenaFrame if it already exists (e.g. /reload inside arena)
+		if CompactArenaFrame then
+			hideBlizzardFrames(CompactArenaFrame)
+		end
 
-		-- Also silence individual child frames — they have their own events
-		-- that trigger ArenaEnemyFramesContainer:Update() and cause taint
-		for i = 1, MAX_ARENA_ENEMIES or 5 do
-			local matchFrame = _G["ArenaEnemyMatchFrame"..i]
-			if matchFrame then
-				matchFrame:UnregisterAllEvents()
-				if matchFrame.healthbar then matchFrame.healthbar:UnregisterAllEvents() end
-				if matchFrame.manabar then matchFrame.manabar:UnregisterAllEvents() end
-				if matchFrame.spellbar then matchFrame.spellbar:UnregisterAllEvents() end
-				local petFrame = _G["ArenaEnemyMatchFrame"..i.."PetFrame"]
-				if petFrame then
-					petFrame:UnregisterAllEvents()
-					if petFrame.healthbar then petFrame.healthbar:UnregisterAllEvents() end
-					if petFrame.manabar then petFrame.manabar:UnregisterAllEvents() end
+		-- Hook CompactArenaFrame_Generate to catch dynamic creation
+		if CompactArenaFrame_Generate and not active_hiddens.arenaHooked then
+			hooksecurefunc("CompactArenaFrame_Generate", function()
+				if CompactArenaFrame then
+					hideBlizzardFrames(CompactArenaFrame)
 				end
-			end
+			end)
+			active_hiddens.arenaHooked = true
 		end
 	end
 
@@ -1129,7 +1124,7 @@ frame:SetScript("OnEvent", function(self, event, addon)
 	if( event == "PLAYER_LOGIN" ) then
 		ShadowUF:OnInitialize()
 		self:UnregisterEvent("PLAYER_LOGIN")
-	elseif( event == "ADDON_LOADED" and ( addon == "Blizzard_ArenaUI" or addon == "Blizzard_CompactRaidFrames" ) ) then
+	elseif( event == "ADDON_LOADED" and addon == "Blizzard_CompactRaidFrames" ) then
 		ShadowUF:HideBlizzardFrames()
 	end
 end)

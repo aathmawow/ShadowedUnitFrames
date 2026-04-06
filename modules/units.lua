@@ -1456,6 +1456,7 @@ function Units:UninitializeFrame(type)
 					frame:SetAttribute("state-unitexists", false)
 				end
 
+				frame.unitGUID = nil
 				frame:Hide()
 			end
 		end
@@ -1523,6 +1524,11 @@ end
 function Units:InitializeArena()
 	if( not headerFrames.arena or InCombatLockdown() ) then return end
 
+	-- Clear all arena frame GUIDs to prevent stale data from previous match
+	for i=1, #(headerFrames.arena.children) do
+		headerFrames.arena.children[i].unitGUID = nil
+	end
+
 	local specs = GetNumArenaOpponentSpecs()
 	if( not specs or specs == 0 ) then return end
 
@@ -1530,7 +1536,42 @@ function Units:InitializeArena()
 		local frame = headerFrames.arena.children[i]
 		frame:SetAttribute("state-unitexists", true)
 		frame:Show()
-		frame:FullUpdate()
+		if( UnitExists(frame.unit) ) then
+			frame:FullUpdate()
+		else
+			-- Unit doesn't exist during prep phase, show class-colored placeholder
+			Units:ArenaPreparationUpdate(frame)
+		end
+	end
+end
+
+-- Fill health/power bars and show spec name when unit doesn't exist yet (gates closed)
+function Units:ArenaPreparationUpdate(frame)
+	local specID = GetArenaOpponentSpec(frame.unitID)
+	if( not specID or specID == 0 ) then return end
+
+	local _, specName, _, _, _, classToken = GetSpecializationInfoByID(specID)
+	if( not classToken ) then return end
+
+	if( frame.healthBar ) then
+		frame.healthBar:SetMinMaxValues(0, 1)
+		frame.healthBar:SetValue(1)
+		local color = ShadowUF.db.profile.classColors[classToken]
+		if( color ) then
+			frame:SetBarColor("healthBar", color.r, color.g, color.b)
+		end
+	end
+
+	if( frame.powerBar ) then
+		frame.powerBar:SetMinMaxValues(0, 1)
+		frame.powerBar:SetValue(1)
+	end
+
+	-- Set spec name on fontStrings directly (no tags, UnitExists is false)
+	if( frame.fontStrings ) then
+		for _, fontString in pairs(frame.fontStrings) do
+			fontString:SetFormattedText("%s", specName or "")
+		end
 	end
 end
 
@@ -1606,7 +1647,8 @@ centralFrame:RegisterEvent("PLAYER_LEVEL_UP")
 centralFrame:RegisterEvent("CINEMATIC_STOP")
 centralFrame:RegisterEvent("ARENA_PREP_OPPONENT_SPECIALIZATIONS")
 centralFrame:RegisterEvent("ARENA_OPPONENT_UPDATE")
-centralFrame:SetScript("OnEvent", function(self, event, unit)
+centralFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+centralFrame:SetScript("OnEvent", function(self, event, unit, ...)
 	-- Check if the player changed zone types and we need to change module status, while they are dead
 	-- we won't change their zone type as releasing from an instance will change the zone type without them
 	-- really having left the zone
@@ -1618,9 +1660,42 @@ centralFrame:SetScript("OnEvent", function(self, event, unit)
 			Units:CheckPlayerZone()
 		end
 
-	-- Force update frames
-	elseif( event == "ARENA_PREP_OPPONENT_SPECIALIZATIONS" or event == "ARENA_OPPONENT_UPDATE" ) then
+	-- All opponent specs available
+	elseif( event == "ARENA_PREP_OPPONENT_SPECIALIZATIONS" ) then
 		Units:InitializeArena()
+
+	-- Arena opponent state change, unit appeared, stealthed, left, or all cleared
+	elseif( event == "ARENA_OPPONENT_UPDATE" ) then
+		local status = ...
+		if( status == "seen" and headerFrames.arena ) then
+			for i=1, #(headerFrames.arena.children) do
+				local frame = headerFrames.arena.children[i]
+				if( frame.unit == unit ) then
+					frame.unitGUID = nil
+					if( UnitExists(unit) ) then
+						frame:FullUpdate()
+					else
+						if( not InCombatLockdown() ) then
+							frame:SetAttribute("state-unitexists", true)
+							frame:Show()
+						end
+						Units:ArenaPreparationUpdate(frame)
+					end
+					break
+				end
+			end
+		elseif( status == "cleared" ) then
+			Units:InitializeArena()
+		end
+
+	-- Entering a new arena instance, clear stale state and re-initialize
+	elseif( event == "PLAYER_ENTERING_WORLD" ) then
+		if( headerFrames.arena ) then
+			local _, iType = IsInInstance()
+			if( iType == "arena" ) then
+				Units:InitializeArena()
+			end
+		end
 
 	-- They're alive again so they "officially" changed zone types now
 	elseif( event == "PLAYER_UNGHOST" ) then
