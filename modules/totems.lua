@@ -79,7 +79,9 @@ function Totems:OnLayoutApplied(frame)
 		totem:SetStatusBarTexture(ShadowUF.Layout.mediaPath.statusbar)
 		totem:GetStatusBarTexture():SetHorizTile(false)
 
-		totem.background:SetTexture(ShadowUF.Layout.mediaPath.statusbar)
+		if not config.icon then
+			totem.background:SetTexture(ShadowUF.Layout.mediaPath.statusbar)
+		end
 
 		if( config.background or config.invert ) then
 			totem.background:Show()
@@ -87,8 +89,14 @@ function Totems:OnLayoutApplied(frame)
 			totem.background:Hide()
 		end
 
-		if( not ShadowUF.db.profile.units[frame.unitType].totemBar.icon ) then
-			frame:SetBlockColor(totem, "totemBar", totemColors[totem.id].r, totemColors[totem.id].g, totemColors[totem.id].b)
+		frame:SetBlockColor(totem, "totemBar", totemColors[totem.id].r, totemColors[totem.id].g, totemColors[totem.id].b)
+
+		if config.icon then
+			totem.background:SetVertexColor(1, 1, 1, 1)
+			local tex = totem:GetStatusBarTexture()
+			local r, g, b = tex:GetVertexColor()
+			local alpha = ShadowUF.db.profile.bars.alpha
+			tex:SetVertexColor(r, g, b, alpha < 1 and alpha or 0.7)
 		end
 
 		if( config.secure ) then
@@ -175,7 +183,8 @@ function Totems:Update(frame)
 
 		if foundTotem then
 			if( ShadowUF.db.profile.units[frame.unitType].totemBar.icon ) then
-				indicator:SetStatusBarTexture(icon)
+				indicator.background:SetTexture(icon)
+				indicator.background:Show()
 			end
 
 			indicator.have = true
@@ -202,6 +211,14 @@ function Totems:Update(frame)
 			indicator:SetScript("OnUpdate", nil)
 			indicator:SetMinMaxValues(0, 1)
 			indicator:SetValue(0)
+
+			if( ShadowUF.db.profile.units[frame.unitType].totemBar.icon ) then
+				indicator.background:SetTexture(ShadowUF.Layout.mediaPath.statusbar)
+				local config = ShadowUF.db.profile.units[frame.unitType].totemBar
+				if not config.background and not config.invert then
+					indicator.background:Hide()
+				end
+			end
 		end
 
 		if( indicator.fontString ) then
