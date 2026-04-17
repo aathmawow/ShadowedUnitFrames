@@ -50,6 +50,7 @@ function Auras:OnEnable(frame)
 
 	frame:RegisterNormalEvent("PLAYER_ENTERING_WORLD", self, "Update")
 	frame:RegisterNormalEvent("ZONE_CHANGED_NEW_AREA", self, "UpdateFilter")
+	frame:RegisterNormalEvent("WEAPON_ENCHANT_CHANGED", self, "OnWeaponEnchantChanged")
 	frame:RegisterUnitEvent("UNIT_AURA", self, "Update")
 	frame:RegisterUpdateFunc(self, "Update")
 
@@ -960,15 +961,16 @@ end
 -- Temporary enchant support
 local timeElapsed = 0
 local function updateTemporaryEnchant(frame, slot, tempData, hasEnchant, enchantId, timeLeft, charges)
-	-- If there's less than a 750 millisecond differences in the times, we don't need to bother updating.
-	-- Any sort of enchant takes more than 0.750 seconds to cast so it's impossible for the user to have two
-	-- temporary enchants with that little difference, as totems don't really give pulsing auras anymore.
 	charges = charges or 0
-	if( tempData.has and tempData.enchantId == enchantId and ( timeLeft < tempData.time and ( tempData.time - timeLeft ) < 750 ) ) then return false end
 
-	-- Some trickys magic, we can't get the start time of temporary enchants easily.
-	-- So will save the first time we find when a new enchant is added
-	if( timeLeft > tempData.time or not tempData.has ) then
+	-- Detect new or changed enchant (different id, reapply with higher time, or first appearance)
+	local isNewEnchant = not tempData.has or tempData.enchantId ~= enchantId or timeLeft > tempData.time
+
+	-- For the same ongoing enchant, skip if less than 750ms elapsed (only charges/icon could differ)
+	if( not isNewEnchant and ( tempData.time - timeLeft ) < 750 ) then return false end
+
+	-- Record start time only on new enchant detection
+	if( isNewEnchant ) then
 		tempData.startTime = GetTime()
 	end
 
@@ -1001,12 +1003,14 @@ local function updateTemporaryEnchant(frame, slot, tempData, hasEnchant, enchant
 	-- Purple border
 	button.border:SetVertexColor(0.50, 0, 0.50)
 
-	-- Show the cooldown ring
-	if( not ShadowUF.db.profile.auras.disableCooldown ) then
-		button.cooldown:SetCooldown(tempData.startTime, timeLeft / 1000)
-		button.cooldown:Show()
-	else
-		button.cooldown:Hide()
+	-- Set cooldown only once per enchant — the CooldownFrameTemplate handles the countdown natively.
+	if( isNewEnchant ) then
+		if( not ShadowUF.db.profile.auras.disableCooldown ) then
+			button.cooldown:SetCooldown(tempData.startTime, timeLeft / 1000)
+			button.cooldown:Show()
+		else
+			button.cooldown:Hide()
+		end
 	end
 
 	-- Size it
@@ -1049,7 +1053,6 @@ tempEnchantScan = function(self, elapsed)
 	if( hasMain ) then
 		self.temporaryEnchants = self.temporaryEnchants + 1
 		updateTemporaryEnchant(self, 16, mainHand, hasMain, mainEnchantId, mainTimeLeft or 0, mainCharges)
-		mainHand.time = mainTimeLeft or 0
 	end
 
 	mainHand.has = hasMain
@@ -1057,7 +1060,6 @@ tempEnchantScan = function(self, elapsed)
 	if( hasOff and self.temporaryEnchants < self.maxAuras ) then
 		self.temporaryEnchants = self.temporaryEnchants + 1
 		updateTemporaryEnchant(self, 17, offHand, hasOff, offEnchantId, offTimeLeft or 0, offCharges)
-		offHand.time = offTimeLeft or 0
 	end
 
 	offHand.has = hasOff
@@ -1067,6 +1069,18 @@ tempEnchantScan = function(self, elapsed)
 		self.lastTemporary = self.temporaryEnchants
 		Auras:Update(self.parent)
 	end
+end
+
+-- Force a fresh rescan when a weapon enchant changes (applied, removed, or replaced)
+function Auras:OnWeaponEnchantChanged(frame)
+	mainHand.has = false
+	mainHand.time = 0
+	mainHand.enchantId = nil
+	offHand.has = false
+	offHand.time = 0
+	offHand.enchantId = nil
+	timeElapsed = ShadowUF.Performance:GetRate("tempEnchantScan")
+	self:Update(frame)
 end
 
 -- Zone-based aura filtering (blacklist/whitelist per zone + unit type)
