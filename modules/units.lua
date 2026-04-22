@@ -382,7 +382,21 @@ function Units:CheckVehicleStatus(frame, event, unit)
 	if( event and frame.unitOwner ~= unit ) then return end
 
 	-- Not in a vehicle yet, and they entered one that has a UI or they were in a vehicle but the GUID changed (vehicle -> vehicle)
-	if( ( not frame.inVehicle or (UnitExists(frame.vehicleUnit) and frame.unitGUID ~= SafeUnitGUID(frame.vehicleUnit)) ) and UnitHasVehicleUI(frame.unitOwner) and UnitHasVehiclePlayerFrameUI(frame.unitOwner) and not ShadowUF.db.profile.units[frame.unitType].disableVehicle ) then
+	local vehicleGUIDChanged = false
+	if( frame.inVehicle and UnitExists(frame.vehicleUnit) ) then
+		local newGUID = SafeUnitGUID(frame.vehicleUnit)
+		local checkSecret = _G.issecretvalue
+		local isSecret = checkSecret and checkSecret(newGUID)
+		local wasSecret = checkSecret and checkSecret(frame.unitGUID)
+		if( isSecret and wasSecret ) then
+			vehicleGUIDChanged = false
+		elseif( isSecret ~= wasSecret ) then
+			vehicleGUIDChanged = true
+		else
+			vehicleGUIDChanged = (frame.unitGUID ~= newGUID)
+		end
+	end
+	if( ( not frame.inVehicle or vehicleGUIDChanged ) and UnitHasVehicleUI(frame.unitOwner) and UnitHasVehiclePlayerFrameUI(frame.unitOwner) and not ShadowUF.db.profile.units[frame.unitType].disableVehicle ) then
 		frame.inVehicle = true
 		frame.unit = frame.vehicleUnit
 
