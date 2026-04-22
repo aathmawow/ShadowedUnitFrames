@@ -335,6 +335,7 @@ L["Failed to import layout, error:|n|n%s"] = "Importieren des Layouts fehlgeschl
 L["Failed to load ShadowedUF_Options, cannot open configuration. Error returned: %s"] = "Laden von ShadowedUF_Options fehlgeschlagen, die Konfiguration kann nicht geöffnet werden. Fehlermeldung: %s"
 L["Failed to save tag, error:|n %s"] = "Speichern des Tags fehlgeschlagen, Fehler:|n %s"
 L["Female"] = "Weiblich"
+L["Bar anchor"] = "Balkenanker"
 L["Filter type"] = "Filter-Typ"
 L["Filtering both buffs and debuffs"] = "Stärkungs- und Schwächungszauber filtern"
 L["Filtering buffs only"] = "Nur Stärkungszauber filtern"

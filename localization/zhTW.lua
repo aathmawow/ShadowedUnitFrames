@@ -336,6 +336,7 @@ L["Failed to import layout, error:|n|n%s"] = "匯入版面編排失敗，錯誤:
 L["Failed to load ShadowedUF_Options, cannot open configuration. Error returned: %s"] = "載入ShadowedUF_Options失敗，無法開啟配置。錯誤返回:%s"
 L["Failed to save tag, error:|n %s"] = "儲存標記失敗，錯誤|n %s"
 L["Female"] = "女性"
+L["Bar anchor"] = "條錨點"
 L["Filter type"] = "篩選類型"
 L["Filtering both buffs and debuffs"] = "篩選增益和減益兩者"
 L["Filtering buffs only"] = "僅篩選增益"

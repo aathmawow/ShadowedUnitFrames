@@ -329,7 +329,7 @@ function IncHeal:PositionBarHealthOverflowMode(frame, bar, incAmount, maxHealth)
 	overflowBar:Show()
 end
 
--- Frame anchor mode: reverse fill from frame edge inward, real values
+-- Frame anchor mode: fill from chosen frame edge, real values
 function IncHeal:PositionBarFrameMode(frame, bar, incAmount, maxHealth)
 	-- Hide cropper and overflow if they exist
 	if( bar.cropper ) then bar.cropper:Hide() end
@@ -339,9 +339,9 @@ function IncHeal:PositionBarFrameMode(frame, bar, incAmount, maxHealth)
 	bar:SetParent(frame.healthBar)
 	bar:SetFrameLevel(frame.topFrameLevel + 5 - self.frameLevelMod)
 	bar:ClearAllPoints()
-	bar:SetReverseFill(true)
 
 	local cfg = ShadowUF.db.profile.units[frame.unitType][self.frameKey]
+	bar:SetReverseFill((cfg.frameEdge or "END") == "END")
 	local startInset, endInset = getCrossAxisInsets(frame, cfg.barSize, cfg.barAlign)
 
 	if( frame.healthBar:GetOrientation() == "HORIZONTAL" ) then

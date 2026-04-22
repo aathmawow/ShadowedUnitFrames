@@ -4978,6 +4978,20 @@ local function loadUnitOptions()
 									arg = "healAbsorb.anchorMode",
 									hidden = false,
 								},
+								frameEdge = {
+									order = 2.5,
+									type = "select",
+									name = L["Bar anchor"],
+									values = function(info)
+										if( getVariable(info[2], "healthBar", nil, "vertical") ) then
+											return {["END"] = L["Top"], ["START"] = L["Bottom"]}
+										else
+											return {["END"] = L["Right"], ["START"] = L["Left"]}
+										end
+									end,
+									arg = "healAbsorb.frameEdge",
+									hidden = function(info) return getVariable(info[2], "healAbsorb", nil, "anchorMode") ~= "frame" end,
+								},
 								cap = {
 									order = 3,
 									type = "range",
@@ -5052,6 +5066,20 @@ local function loadUnitOptions()
 								arg = "incHeal.anchorMode",
 								hidden = false,
 							},
+							frameEdge = {
+								order = 2.5,
+								type = "select",
+								name = L["Bar anchor"],
+								values = function(info)
+									if( getVariable(info[2], "healthBar", nil, "vertical") ) then
+										return {["END"] = L["Top"], ["START"] = L["Bottom"]}
+									else
+										return {["END"] = L["Right"], ["START"] = L["Left"]}
+									end
+								end,
+								arg = "incHeal.frameEdge",
+								hidden = function(info) return getVariable(info[2], "incHeal", nil, "anchorMode") ~= "frame" end,
+							},
 							cap = {
 								order = 3,
 								type = "range",
@@ -5125,6 +5153,20 @@ local function loadUnitOptions()
 								values = {["healthBar"] = L["Health bar"], ["frame"] = L["Frame"], ["overlay"] = L["Health fill (reverse)"], ["healthBarOverflow"] = L["Health bar (fill + reverse overlay)"]},
 								arg = "incAbsorb.anchorMode",
 								hidden = false,
+							},
+							frameEdge = {
+								order = 2.5,
+								type = "select",
+								name = L["Bar anchor"],
+								values = function(info)
+									if( getVariable(info[2], "healthBar", nil, "vertical") ) then
+										return {["END"] = L["Top"], ["START"] = L["Bottom"]}
+									else
+										return {["END"] = L["Right"], ["START"] = L["Left"]}
+									end
+								end,
+								arg = "incAbsorb.frameEdge",
+								hidden = function(info) return getVariable(info[2], "incAbsorb", nil, "anchorMode") ~= "frame" end,
 							},
 							cap = {
 								order = 3,

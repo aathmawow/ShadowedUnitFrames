@@ -275,6 +275,7 @@ L["Failed to import layout, error:|n|n%s"] = "Не удалось импорти
 L["Failed to load ShadowedUF_Options, cannot open configuration. Error returned: %s"] = "Не удалось загрузить ShadowedUF_Options, невозможно открыть настройки. Ошибка: %s"
 L["Failed to save tag, error:|n %s"] = "Не удалось сохранить тег, ошибка:|n %s"
 L["Female"] = "Женщина"
+L["Bar anchor"] = "Привязка полосы"
 L["Filter type"] = "Тип фильтра"
 L["Filtering both buffs and debuffs"] = "Фильтрация баффов и дебаффов, вместе"
 L["Filtering buffs only"] = "Фильтрация только баффов"

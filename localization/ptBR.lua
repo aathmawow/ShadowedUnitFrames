@@ -655,6 +655,7 @@ L["Failed to save tag, error:|n %s"] = [=[Falha ao salvar a tag, erro:|n %s
 
 ]=]
 L["Female"] = "Fêmea"
+L["Bar anchor"] = "Âncora da barra"
 L["Filter type"] = "Tipo de filtro"
 L["Filtering both buffs and debuffs"] = [=[Filtrando buffs e debuffs
 

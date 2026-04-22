@@ -350,6 +350,7 @@ L["Failed to import layout, error:|n|n%s"] = "Échec de l'importation de la disp
 L["Failed to load ShadowedUF_Options, cannot open configuration. Error returned: %s"] = "Échec du chargement de ShadowedUF_Options car impossible de charger la configuration. Erreur renvoyée : %s"
 L["Failed to save tag, error:|n %s"] = "Échec de la sauvegarde du tag, erreur : |n %s"
 L["Female"] = "Femme"
+L["Bar anchor"] = "Ancre de la barre"
 L["Filter type"] = "Type de filtre"
 L["Filtering both buffs and debuffs"] = "Filtrage des buffs et des debuffs"
 L["Filtering buffs only"] = "Filtrage des buffs uniquement"
