@@ -1723,7 +1723,7 @@ centralFrame:SetScript("OnEvent", function(self, event, unit, ...)
 		end
 
 	-- Monitor talent changes for curable changes
-	elseif( event == "PLAYER_SPECIALIZATION_CHANGED" or event == "UNIT_PET" or event == "SPELLS_CHANGED") then
+	elseif( event == "PLAYER_SPECIALIZATION_CHANGED" or event == "UNIT_PET" or event == "TRAIT_CONFIG_UPDATED") then
 		checkCurableSpells()
 
 		for frame in pairs(ShadowUF.Units.frameList) do
@@ -1739,7 +1739,7 @@ centralFrame:SetScript("OnEvent", function(self, event, unit, ...)
 	elseif( event == "PLAYER_LOGIN" ) then
 		checkCurableSpells()
 		self:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-		self:RegisterEvent("SPELLS_CHANGED")
+		self:RegisterEvent("TRAIT_CONFIG_UPDATED")
 		if( playerClass == "WARLOCK" ) then
 			self:RegisterUnitEvent("UNIT_PET", "player", nil)
 		end
