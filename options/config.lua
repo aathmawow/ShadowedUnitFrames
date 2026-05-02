@@ -6009,7 +6009,7 @@ local function loadFilterOptions()
 		local whitelistedSpells = ShadowUF.modules.auraIndicators and ShadowUF.modules.auraIndicators.whitelistedSpells or {}
 		local sorted = {}
 		for id, data in pairs(whitelistedSpells) do
-			sorted[#sorted + 1] = {id = id, name = data.name, group = data.group}
+			sorted[#sorted + 1] = {id = id, name = GetSpellName(id) or data.name, group = data.group}
 		end
 		table.sort(sorted, function(a, b)
 			if a.group == b.group then return a.name < b.name end
@@ -6018,7 +6018,7 @@ local function loadFilterOptions()
 		for i, entry in ipairs(sorted) do
 			local icon = GetSpellTexture(entry.id)
 			local iconStr = icon and string.format("|T%s:14:14:0:0|t ", icon) or ""
-			whitelistedSpellValues[entry.id] = string.format("%s%s (#%d) [%s]", iconStr, entry.name, entry.id, entry.group)
+			whitelistedSpellValues[entry.id] = string.format("%s%s (#%d) [%s]", iconStr, GetSpellName(entry.id) or entry.name, entry.id, entry.group)
 			whitelistedSpellOrder[#whitelistedSpellOrder + 1] = entry.id
 		end
 	end
@@ -6069,8 +6069,31 @@ local function loadFilterOptions()
 						type = "select",
 						name = L["Add spell"],
 						width = "double",
-						values = function() return whitelistedSpellValues end,
-						sorting = function() return whitelistedSpellOrder end,
+						values = function(info)
+							local filter = filterMap[info[#(info) - 2]]
+							local filterType = info[#(info) - 3]
+							local existing = ShadowUF.db.profile.filters[filterType] and ShadowUF.db.profile.filters[filterType][filter]
+							local filtered = {}
+							for id, label in pairs(whitelistedSpellValues) do
+								if not existing or not existing[id] then
+									filtered[id] = label
+								end
+							end
+							return filtered
+						end,
+						sorting = function(info)
+							local filter = filterMap[info[#(info) - 2]]
+							local filterType = info[#(info) - 3]
+							local existing = ShadowUF.db.profile.filters[filterType] and ShadowUF.db.profile.filters[filterType][filter]
+							if not existing then return whitelistedSpellOrder end
+							local filtered = {}
+							for _, id in ipairs(whitelistedSpellOrder) do
+								if not existing[id] then
+									filtered[#filtered + 1] = id
+								end
+							end
+							return filtered
+						end,
 						hidden = false,
 						get = function(info)
 							local filter = filterMap[info[#(info) - 2]]
@@ -8129,7 +8152,9 @@ local function loadAuraIndicatorsOptions()
 									local vals = {}
 									for spellID, info in pairs(Indicators.whitelistedSpells) do
 										if( not ShadowUF.db.profile.auraIndicators.auras[tostring(spellID)] ) then
-											vals[tostring(spellID)] = string.format("[%s] %s (%d)", info.group, info.name, spellID)
+											local icon = GetSpellTexture(spellID)
+												local iconStr = icon and string.format("|T%s:14:14:0:0|t ", icon) or ""
+												vals[tostring(spellID)] = string.format("%s[%s] %s (%d)", iconStr, info.group, GetSpellName(spellID) or info.name, spellID)
 										end
 									end
 									return vals
