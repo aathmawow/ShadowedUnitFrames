@@ -7,6 +7,8 @@ local attributeBlacklist = {["showplayer"] = true, ["showraid"] = true, ["showpa
 local playerClass = select(2, UnitClass("player"))
 local noop = function() end
 local OnDragStop, OnDragStart, configEnv
+local testConfigEnv
+local testOriginalEnvs = {}
 ShadowUF:RegisterModule(Movers, "movers")
 
 -- This is the fun part, the env to fake units and make them show up as examples
@@ -292,6 +294,25 @@ local function setupUnits(childrenOnly)
 end
 
 function Movers:Enable()
+	-- Clear any active test modes before entering full config mode
+	if( next(self.testModeUnits) ) then
+		for func, env in pairs(testOriginalEnvs) do
+			setfenv(func, env)
+			testOriginalEnvs[func] = nil
+		end
+		for frame in pairs(ShadowUF.Units.frameList) do
+			if( self.testModeUnits[frame.unitType] and frame.configMode ) then
+				frame.configMode = nil
+				frame.unitOwner = nil
+			end
+		end
+		wipe(self.testModeUnits)
+		self.testModeEnvActive = false
+		for _, unitCfg in pairs(ShadowUF.db.profile.units) do
+			if( unitCfg.auras ) then unitCfg.auras.testMode = nil end
+		end
+	end
+
 	createConfigEnv()
 
 	-- Force create zone headers
@@ -444,6 +465,204 @@ function Movers:Disable()
 
 	self.isConfigModeSpec = nil
 	self.isEnabled = nil
+
+	-- Clear any active test modes since config mode restores everything
+	wipe(self.testModeUnits)
+	self.testModeEnvActive = false
+end
+
+-- Shows a full placeholder frame for a specific unit type
+-- Uses a separate testConfigEnv that only fakes data for test mode unit types
+Movers.testModeUnits = {}
+Movers.testModeEnvActive = false
+
+local function createTestConfigEnv()
+	if( testConfigEnv ) then return end
+	createConfigEnv()
+
+	-- Build an env that delegates to configEnv fakes only for test mode unit types and to _G for everything else.
+	local cache = {}
+	testConfigEnv = setmetatable({}, {
+		__index = function(tbl, key)
+			-- Check cache first
+			if( cache[key] ~= nil ) then return cache[key] end
+
+			local fakeVal = rawget(configEnv, key)
+			local realVal = _G[key]
+
+			-- If the fake is a function and so is the real one, create a smart wrapper
+			if( type(fakeVal) == "function" and type(realVal) == "function" ) then
+				cache[key] = function(firstArg, ...)
+					if( type(firstArg) == "string" ) then
+						local ut = string.gsub(firstArg, "(%d+)", "")
+						if( Movers.testModeUnits[ut] ) then
+							return fakeVal(firstArg, ...)
+						end
+					end
+					return realVal(firstArg, ...)
+				end
+				return cache[key]
+			end
+
+			-- For non-functions or fake-only values, use fake if available
+			local val = fakeVal ~= nil and fakeVal or realVal
+			cache[key] = val
+			return val
+		end,
+		__newindex = function(tbl, key, value) _G[key] = value end,
+	})
+
+	-- UnitExists must always be overridden (no first-arg unit type matching needed for some calls)
+	cache["UnitExists"] = function(unit)
+		if( type(unit) == "string" ) then
+			local ut = string.gsub(unit, "(%d+)", "")
+			if( Movers.testModeUnits[ut] ) then return true end
+		end
+		return _G.UnitExists(unit)
+	end
+end
+
+function Movers:EnableTestMode(unitType)
+	if( self.isEnabled ) then return end
+
+	self.testModeUnits[unitType] = true
+	createTestConfigEnv()
+
+	-- setfenv all modules/tags into testConfigEnv (once, shared across test mode units)
+	if( not self.testModeEnvActive ) then
+		for _, func in pairs(ShadowUF.tagFunc) do
+			if( type(func) == "function" ) then
+				testOriginalEnvs[func] = getfenv(func)
+				setfenv(func, testConfigEnv)
+			end
+		end
+
+		for _, module in pairs(ShadowUF.modules) do
+			if( module.moduleName ) then
+				for key, func in pairs(module) do
+					if( type(func) == "function" ) then
+						testOriginalEnvs[module[key]] = getfenv(module[key])
+						setfenv(module[key], testConfigEnv)
+					end
+				end
+			end
+		end
+
+		self.testModeEnvActive = true
+	end
+
+	-- For header-based units, force-create and show the header
+	if( ShadowUF.Units.headerUnits[unitType] or ShadowUF.Units.zoneUnits[unitType] ) then
+		if( ShadowUF.Units.zoneUnits[unitType] ) then
+			ShadowUF.Units:InitializeFrame(unitType)
+		end
+
+		local header = ShadowUF.Units.headerFrames[unitType]
+		if( header ) then
+			if( not header:IsShown() ) then
+				header:Show()
+			end
+
+			for key in pairs(attributeBlacklist) do
+				header:SetAttribute(key, nil)
+			end
+
+			local config = ShadowUF.db.profile.units[unitType]
+			if( config.frameSplit ) then
+				header:SetAttribute("startingIndex", -4)
+			elseif( config.maxColumns ) then
+				local maxUnits = MAX_RAID_MEMBERS
+				if( config.filters ) then
+					for _, enabled in pairs(config.filters) do
+						if( not enabled ) then maxUnits = maxUnits - 5 end
+					end
+				end
+				header:SetAttribute("startingIndex", -math.min(config.maxColumns * config.unitsPerColumn, maxUnits) + 1)
+			elseif( ShadowUF[unitType .. "Units"] ) then
+				header:SetAttribute("startingIndex", -#(ShadowUF[unitType .. "Units"]) + 1)
+			end
+
+			header.startingIndex = header:GetAttribute("startingIndex")
+			prepareChildUnits(header, header:GetChildren())
+		end
+	end
+
+	-- Activate placeholder on frames of this unit type
+	for frame in pairs(ShadowUF.Units.frameList) do
+		if( frame.unitType == unitType and not frame.configMode and ShadowUF.db.profile.units[unitType].enabled ) then
+			frame.originalUnit = frame:GetAttribute("unit")
+			frame.originalOnUpdate = frame:GetScript("OnUpdate")
+			frame.configMode = true
+			frame.unitOwner = nil
+
+			local unit
+			if( frame.isChildUnit ) then
+				local unitFormat = string.gsub(string.gsub(unitType, "target$", "%%dtarget"), "pet$", "pet%%d")
+				unit = string.format(unitFormat, frame.parent and frame.parent.configUnitID or "")
+			else
+				unit = unitType .. (frame.configUnitID or "")
+			end
+
+			frame:SetAttribute("state-unitexists", true)
+			ShadowUF.Units.OnAttributeChanged(frame, "unit", unit)
+
+			frame:SetScript("OnEvent", nil)
+			frame:SetScript("OnUpdate", nil)
+			if( frame.healthBar ) then frame.healthBar:SetScript("OnUpdate", nil) end
+			if( frame.powerBar ) then frame.powerBar:SetScript("OnUpdate", nil) end
+			if( frame.indicators ) then frame.indicators:SetScript("OnUpdate", nil) end
+
+			UnregisterUnitWatch(frame)
+			frame:FullUpdate()
+			frame:Show()
+		end
+	end
+end
+
+function Movers:DisableTestMode(unitType)
+	if( self.isEnabled ) then return end
+
+	self.testModeUnits[unitType] = nil
+
+	-- Restore frames of this unit type
+	for frame in pairs(ShadowUF.Units.frameList) do
+		if( frame.unitType == unitType and frame.configMode ) then
+			frame.configMode = nil
+			frame.unitOwner = nil
+			frame.unit = nil
+			frame:SetAttribute("unit", frame.originalUnit)
+			frame:SetScript("OnEvent", frame:IsVisible() and ShadowUF.Units.OnEvent or nil)
+			frame:SetScript("OnUpdate", frame.originalOnUpdate)
+
+			if( frame.isChildUnit ) then
+				ShadowUF.Units.OnAttributeChanged(frame, "unit", SecureButton_GetModifiedUnit(frame))
+			end
+
+			RegisterUnitWatch(frame, frame.hasStateWatch)
+			if( not UnitExists(frame.unit) ) then frame:Hide() end
+		end
+	end
+
+	-- Restore header for header-based units
+	local header = ShadowUF.Units.headerFrames[unitType]
+	if( header ) then
+		header:SetAttribute("startingIndex", 1)
+		header:SetAttribute("initial-unitWatch", true)
+		if( header.unitType == unitType ) then
+			ShadowUF.Units:ReloadHeader(unitType)
+		end
+	end
+
+	-- If no more test mode units, restore all setfenv
+	if( not next(self.testModeUnits) and self.testModeEnvActive ) then
+		for func, env in pairs(testOriginalEnvs) do
+			setfenv(func, env)
+			testOriginalEnvs[func] = nil
+		end
+		self.testModeEnvActive = false
+		unitConfig = {}
+		ShadowUF.Layout:Reload()
+	end
 end
 
 OnDragStart = function(self)

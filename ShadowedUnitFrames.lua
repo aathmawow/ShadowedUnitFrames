@@ -82,6 +82,11 @@ function ShadowUF:OnInitialize()
 			return tbl[index]
 	end})
 
+	-- Clear transient test mode flags (not persisted across reload)
+	for _, unitCfg in pairs(self.db.profile.units) do
+		if( unitCfg.auras ) then unitCfg.auras.testMode = nil end
+	end
+
 	if( not self.db.profile.loadedLayout ) then
 		self:LoadDefaultLayout()
 	else

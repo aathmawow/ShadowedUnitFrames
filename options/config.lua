@@ -3310,6 +3310,30 @@ local function loadUnitOptions()
 		name = getName,
 		hidden = isUnitDisabled,
 		args = {
+			testMode = {
+				order = 0,
+				type = "toggle",
+				name = L["Test mode"],
+				desc = L["Shows placeholder auras on this unit's frames to preview positioning."],
+				width = "half",
+				hidden = isModifiersSet,
+				get = function(info)
+					local cfg = ShadowUF.db.profile.units[info[2]]
+					return cfg and cfg.auras and cfg.auras.testMode
+				end,
+				set = function(info, value)
+					local unitType = info[2]
+					local cfg = ShadowUF.db.profile.units[unitType]
+					if cfg and cfg.auras then
+						cfg.auras.testMode = value
+					end
+					if value then
+						ShadowUF.modules.movers:EnableTestMode(unitType)
+					else
+						ShadowUF.modules.movers:DisableTestMode(unitType)
+					end
+				end,
+			},
 			general = {
 				order = 1,
 				name = L["General"],
@@ -5603,31 +5627,6 @@ local function loadUnitOptions()
 				get = getUnit,
 				childGroups = "tree",
 				args = {
-					auraTestMode = {
-						order = 4,
-						type = "group",
-						name = L["Test mode"],
-						args = {
-							toggle = {
-								order = 1,
-								type = "toggle",
-								name = L["Test mode"],
-								desc = L["Shows placeholder auras on this unit's frames to preview positioning."],
-								width = "full",
-								get = function(info)
-									local cfg = ShadowUF.db.profile.units[info[2]]
-									return cfg and cfg.auras and cfg.auras.testMode
-								end,
-								set = function(info, value)
-									local cfg = ShadowUF.db.profile.units[info[2]]
-									if cfg and cfg.auras then
-										cfg.auras.testMode = value
-										ShadowUF.Layout:Reload()
-									end
-								end,
-							},
-						},
-					},
 					buffs = Config.auraTable,
 					debuffs = Config.auraTable,
 					bossDebuffs = Config.bossDebuffsTable,
@@ -8636,14 +8635,16 @@ function Config:Open()
 	if( aceFrame and aceFrame.frame and not aceFrame.frame.suf_hooked ) then
 		aceFrame.frame.suf_hooked = true
 		aceFrame.frame:HookScript("OnHide", function()
-			local needReload = false
-			for _, unitCfg in pairs(ShadowUF.db.profile.units) do
-				if( unitCfg.auras and unitCfg.auras.testMode ) then
-					unitCfg.auras.testMode = nil
-					needReload = true
-				end
+			-- Copy keys first since DisableTestMode modifies the table
+			local units = {}
+			for unitType in pairs(ShadowUF.modules.movers.testModeUnits) do
+				units[unitType] = true
 			end
-			if( needReload ) then ShadowUF.Layout:Reload() end
+			for unitType in pairs(units) do
+				local cfg = ShadowUF.db.profile.units[unitType]
+				if( cfg and cfg.auras ) then cfg.auras.testMode = nil end
+				ShadowUF.modules.movers:DisableTestMode(unitType)
+			end
 		end)
 	end
 

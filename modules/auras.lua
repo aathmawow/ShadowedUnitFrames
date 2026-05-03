@@ -801,9 +801,8 @@ function Auras:UpdateBossDebuffs(frame)
 
 	if not privateAuraUnits[frame.unitType] then return end
 
-	-- Config mode or per-unit test mode: show placeholders
-	local bdUnitCfg = frame.unitType and ShadowUF.db.profile.units[frame.unitType] and ShadowUF.db.profile.units[frame.unitType].auras
-	if( frame.configMode or (bdUnitCfg and bdUnitCfg.testMode) ) then
+	-- Config/test mode: show placeholders
+	if( frame.configMode ) then
 		self:ShowBossDebuffsPlaceholders(frame)
 		return
 	end
@@ -1341,9 +1340,8 @@ end
 local function scan(parent, frame, type, config, displayConfig, filter)
 	if( frame.totalAuras >= frame.maxAuras or not config.enabled ) then return end
 
-	-- Config mode or per-unit test mode: show test auras
-	local unitAurasCfg = frame.parent.unitType and ShadowUF.db.profile.units[frame.parent.unitType] and ShadowUF.db.profile.units[frame.parent.unitType].auras
-	if( frame.parent.configMode or (unitAurasCfg and unitAurasCfg.testMode) ) then
+	-- Config/test mode: show test auras
+	if( frame.parent.configMode ) then
 		return scanConfigMode(parent, frame, type, config, displayConfig, filter)
 	end
 
@@ -1436,8 +1434,7 @@ end
 local function scanBlizzard(parent, frame, type, config, displayConfig)
 	if frame.totalAuras >= frame.maxAuras or not config.enabled then return end
 
-	local unitAurasCfg2 = frame.parent.unitType and ShadowUF.db.profile.units[frame.parent.unitType] and ShadowUF.db.profile.units[frame.parent.unitType].auras
-	if( frame.parent.configMode or (unitAurasCfg2 and unitAurasCfg2.testMode) ) then
+	if( frame.parent.configMode ) then
 		local baseFilter = (type == "buffs") and "HELPFUL" or "HARMFUL"
 		return scanConfigMode(parent, frame, type, config, displayConfig, baseFilter)
 	end
