@@ -2319,7 +2319,7 @@ local function loadUnitOptions()
 	}
 
 	-- Unit types that have a Blizzard frame source for the Blizzard filter
-	local blizzardFilterUnits = {target = true, focus = true, party = true, raid = true, arena = true, maintank = true, mainassist = true}
+	local blizzardFilterUnits = {target = true, focus = true}
 
 	-- Helper to get frame config (auras.buffs[1], auras.debuffs[2], etc.)
 	local function getAuraFrameConfig(unit, auraType, frameIndex)

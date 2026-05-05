@@ -977,30 +977,16 @@ function ShadowUF:HideBlizzardFrames()
 		end
 	end
 
-	local needCompactAuraTracking = unitUsesBlizzardFilter("party") or unitUsesBlizzardFilter("raid") or unitUsesBlizzardFilter("arena")
-
 	if( CompactRaidFrameManager ) then
 		if( self.db.profile.hidden.raid and not active_hiddens.raidTriggered ) then
 			active_hiddens.raidTriggered = true
 
 			local function hideRaid()
-				if needCompactAuraTracking then
-					-- Preserve event processing for aura tracking
-					pcall(function()
-						CompactRaidFrameManager:SetAlpha(0)
-						CompactRaidFrameContainer:SetAlpha(0)
-						if not InCombatLockdown() then
-							CompactRaidFrameManager:SetScale(0.001)
-							CompactRaidFrameContainer:SetScale(0.001)
-							CompactRaidFrameManager:Hide()
-						end
-					end)
-				else
-					CompactRaidFrameManager:UnregisterAllEvents()
-					CompactRaidFrameContainer:UnregisterAllEvents()
-					if( InCombatLockdown() ) then return end
-					CompactRaidFrameManager:Hide()
-				end
+				CompactRaidFrameManager:UnregisterAllEvents()
+				CompactRaidFrameContainer:UnregisterAllEvents()
+				if( InCombatLockdown() ) then return end
+
+				CompactRaidFrameManager:Hide()
 				local shown = CompactRaidFrameManager_GetSetting("IsShown")
 				if( shown and shown ~= "0" ) then
 					CompactRaidFrameManager_SetSetting("IsShown", "0")
@@ -1017,17 +1003,6 @@ function ShadowUF:HideBlizzardFrames()
 			CompactRaidFrameContainer:HookScript("OnShow", hideRaid)
 			CompactRaidFrameManager:HookScript("OnShow", hideRaid)
 		end
-	end
-
-	-- Register UNIT_AURA on CompactUnitFrames for the Blizzard filter
-	if needCompactAuraTracking and CompactUnitFrame_UpdateUnitEvents and not active_hiddens.compactAuraHook then
-		active_hiddens.compactAuraHook = true
-		hooksecurefunc("CompactUnitFrame_UpdateUnitEvents", function(compactFrame)
-			if compactFrame.unit then
-				pcall(compactFrame.RegisterUnitEvent, compactFrame, "UNIT_AURA", compactFrame.unit,
-					compactFrame.displayedUnit ~= compactFrame.unit and compactFrame.displayedUnit or nil)
-			end
-		end)
 	end
 
 	if( self.db.profile.hidden.buffs and not active_hiddens.buffs ) then

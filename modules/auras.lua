@@ -18,8 +18,8 @@ local function _safeGetAuraSlots()
 	return {C_UnitAuras.GetAuraSlots(_scanUnit, _scanFilter)}
 end
 
--- Hooks that trigger a SUF aura re-scan after Blizzard finishes updating its frames.
--- Ensures SUF always reads fresh data regardless of event handler ordering.
+-- Hook that triggers a SUF aura re-scan after Blizzard's TargetFrame/FocusFrame finishes updating.
+-- Ensures SUF reads fresh activeDebuffs/activeBuffs regardless of event handler ordering.
 local blizHooksInstalled = false
 
 local function onBlizAurasUpdated(blizFrame)
@@ -39,9 +39,6 @@ local function installBlizAuraHooks()
 	end
 	if FocusFrame then
 		hooksecurefunc(FocusFrame, "UpdateAuras", onBlizAurasUpdated)
-	end
-	if CompactUnitFrame_UpdateAuras then
-		hooksecurefunc("CompactUnitFrame_UpdateAuras", onBlizAurasUpdated)
 	end
 end
 
@@ -1397,32 +1394,6 @@ local function getBlizzardAuraIDs(unit, auraType)
 			end)
 		end
 		return tbl and ids or nil
-	end
-
-	-- Party, Raid, Arena, find matching CompactUnitFrame
-	local compactFrame
-	for i = 1, 40 do
-		local f = _G["CompactRaidFrame" .. i]
-		if f and f.unit == unit then compactFrame = f; break end
-	end
-	if not compactFrame then
-		for i = 1, 4 do
-			local f = _G["CompactPartyFrameMember" .. i]
-			if f and f.unit == unit then compactFrame = f; break end
-		end
-	end
-	if compactFrame then
-		local children = typeKey and compactFrame.buffFrames or compactFrame.debuffFrames
-		if children then
-			for i = 1, #children do
-				local child = children[i]
-				if not child:IsShown() then break end
-				if child.auraInstanceID then
-					ids[#ids + 1] = child.auraInstanceID
-				end
-			end
-		end
-		return children and ids or nil
 	end
 
 	return nil
