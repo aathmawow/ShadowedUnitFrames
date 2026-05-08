@@ -7443,6 +7443,7 @@ local function loadAuraIndicatorsOptions()
 	end
 
 	local function groupName(name)
+		if not name then return "" end
 		local converted = string.lower(string.gsub(name, " ", ""))
 		return groupAliases[converted] or name
 	end
@@ -7639,7 +7640,7 @@ local function loadAuraIndicatorsOptions()
 					local groupList = getAuraGroup(info)
 					for groupID, name in pairs(groupMap) do
 						if( not groupList[name] ) then
-							unitTable.args[tostring(groupID)] = nil
+							unitTable.args.groups.args[tostring(groupID)] = nil
 							options.args.auraIndicators.args.units.args.global.args.groups.args[tostring(groupID)] = nil
 							options.args.auraIndicators.args.auras.args.groups.args[tostring(groupID)] = nil
 							groupMap[groupID] = nil
