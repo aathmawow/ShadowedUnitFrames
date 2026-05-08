@@ -5,7 +5,7 @@
 ShadowUF = select(2, ...)
 
 local L = ShadowUF.L
-ShadowUF.dbRevision = 68
+ShadowUF.dbRevision = 69
 ShadowUF.playerUnit = "player"
 ShadowUF.enabledUnits = {}
 ShadowUF.modules = {}
@@ -430,6 +430,25 @@ function ShadowUF:CheckUpgrade()
 					local m = anchorMigration[config.auras.bossDebuffs.anchorPoint]
 					if( m ) then
 						config.auras.bossDebuffs.anchorPoint = m.a
+					end
+				end
+			end
+		end
+	end
+
+	-- Migrate BLIZZARD filter for unit types that no longer support it
+	if revision <= 68 then
+		local blizzardAllowed = {target = true, focus = true}
+		for unit, config in pairs(self.db.profile.units) do
+			if not blizzardAllowed[unit] and config.auras then
+				for _, key in pairs({"buffs", "debuffs"}) do
+					local typeConfig = config.auras[key]
+					if typeConfig then
+						for i = 1, 6 do
+							if typeConfig[i] and typeConfig[i].filter == "BLIZZARD" then
+								typeConfig[i].filter = (key == "buffs") and "PLAYER" or "ALL"
+							end
+						end
 					end
 				end
 			end
