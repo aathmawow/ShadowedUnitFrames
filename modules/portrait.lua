@@ -31,6 +31,11 @@ function Portrait:OnPreLayoutApply(frame, config)
 			frame.portraitModel:SetScript("OnShow", resetCamera)
 			frame.portraitModel:SetScript("OnHide", resetGUID)
 			frame.portraitModel.parent = frame
+
+			-- 2D fallback texture for instanced content where SetUnit is blocked
+			frame.portraitModel.fallbackTexture = frame.portraitModel:CreateTexture(nil, "ARTWORK")
+			frame.portraitModel.fallbackTexture:SetAllPoints(frame.portraitModel)
+			frame.portraitModel.fallbackTexture:Hide()
 		end
 
 		frame.portrait = frame.portraitModel
@@ -111,14 +116,26 @@ function Portrait:Update(frame, event)
 		frame.portrait:SetModelScale(5.5)
 		frame.portrait:SetPosition(0, 0, -0.8)
 		frame.portrait:SetModel("Interface\\Buttons\\talktomequestionmark.m2")
+		frame.portraitModel.fallbackTexture:Hide()
 
-	-- Use animated 3D portrait
+	-- Use animated 3D portrait, with 2D fallback when unit identity is secret
 	else
-		frame.portrait:ClearModel()
-		frame.portrait:SetUnit(frame.unitOwner)
-		frame.portrait:SetPortraitZoom(1)
-		frame.portrait:SetPosition(0, 0, 0)
-		frame.portrait:Show()
+		local guid = UnitGUID(frame.unitOwner)
+		if( guid and issecretvalue(guid) ) then
+			-- Unit identity is classified — SetUnit won't work, fallback to 2D
+			frame.portrait:ClearModel()
+			local fb = frame.portraitModel.fallbackTexture
+			fb:SetTexCoord(0.10, 0.90, 0.10, 0.90)
+			SetPortraitTexture(fb, frame.unitOwner)
+			fb:Show()
+		else
+			frame.portraitModel.fallbackTexture:Hide()
+			frame.portrait:ClearModel()
+			frame.portrait:SetUnit(frame.unitOwner)
+			frame.portrait:SetPortraitZoom(1)
+			frame.portrait:SetPosition(0, 0, 0)
+			frame.portrait:Show()
+		end
 	end
 end
 
