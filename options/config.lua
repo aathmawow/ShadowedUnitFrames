@@ -4019,6 +4019,23 @@ local function loadUnitOptions()
 							},
 						},
 					},
+					-- RUNES
+					barRunes = {
+						order = 4,
+						type = "group",
+						inline = true,
+						name = L["Runes"],
+						hidden = function(info) return playerClass ~= "DEATHKNIGHT" or not getVariable(info[2], nil, nil, "runeBar") end,
+						args = {
+							enabled = {
+								order = 1,
+								type = "toggle",
+								name = string.format(L["Enable %s"], L["Runes"]),
+								hidden = false,
+								arg = "runeBar.enabled",
+							},
+						},
+					},
 					-- SHADOW ORBS
 					barShadowOrbs = {
 						order = 4,
