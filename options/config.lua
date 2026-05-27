@@ -3976,7 +3976,7 @@ local function loadUnitOptions()
 								name = L["Size"],
 								min = 0, max = 50, step = 1, softMin = 0, softMax = 20,
 								hidden = hideAdvancedOption,
-								arg = "essencce.size",
+								arg = "essence.size",
 							},
 							spacing = {
 								order = 3,
